@@ -17,4 +17,15 @@ class tensor(ndarray):
         return self
 
     def rename_legs(self, legs_dict):
-        pass
+        for i, j in legs_dict.items():
+            try:
+                self.legs[self.legs.index(str(i))] = str(j)
+            except Exception as e:
+                raise Exception("error when rename legs") from e
+        assert len(set(self.legs)) == len(self.legs), "repeated legs name"
+        return self
+
+    def tensor_transpose(self, legs):
+        res = self.transpose([self.legs.index(str(i)) for i in legs])
+        res.set_legs(legs)
+        return res
