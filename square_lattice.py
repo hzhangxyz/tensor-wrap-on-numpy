@@ -62,25 +62,26 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
     return res
 
 
-class SqaureLattice():
+class SquareLattice():
 
     def __create_node(self, i, j):
         legs = "lrud"
         if i == 0:
-            legs = legs.replace("l", "")
-        if i == self.size[0]-1:
-            legs = legs.replace("r", "")
-        if j == 0:
             legs = legs.replace("u", "")
-        if j == self.size[1]-1:
+        if i == self.size[0]-1:
             legs = legs.replace("d", "")
+        if j == 0:
+            legs = legs.replace("l", "")
+        if j == self.size[1]-1:
+            legs = legs.replace("r", "")
         return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
 
-    def __init__(self, n, m, D):
+    def __init__(self, n, m, D, D_c):
         self.size = (n, m)
         self.D = D
+        self.D_c = D
         self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
-        self.spin = SpinState([self])
+        self.spin = SpinState(self)
         #self.markov_chain_length = 1000
         #self.hamiltonian = np.tenor(np.reshape([1,0,0,0,0,-1,2,0,0,2,-1,0,0,0,0,1],[2,2,2,2]),legs=["p1","p2","P1","P2"])
 
@@ -103,23 +104,29 @@ class SqaureLattice():
 
 class SpinState(list):
 
-    def __new__(cls, lattice, spin_state=None):
+    def __new__(cls, lattice, *args, **kw):
         obj = super().__new__(SpinState)
+        obj.size = lattice.size
         return obj
 
-    def __init__(self, lattice, spin_state=None):
+    def __init__(self, lattice, scan_time=2, spin_state=None):
         if spin_state:
             super().__init__(spin_state)
         else:
             super().__init__([[(i+j) % 2 for j in range(self.size[1])] for i in range(self.size[0])])  # !!
-        obj.size = lattice[0].size
-        obj.lattice = lattice[0].lattice
-        obj.D = lattice[0].D
+        self.lattice = lattice.lattice
+        self.D = lattice.D
+        self.D_c = lattice.D_c
         # this 3 attr above is read only in SpinState class
-        self.lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
+        self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
+        self.scan_time = scan_time
         self.flag_up_to_down = False
         self.flag_down_to_up = False
+        self.flag_left_to_right = False
+        self.flag_right_to_left = False
         self.w_s = None
+
+        self.auxiliary()
 
     def cal_w_s(self):
         if self.w_s is not None:
@@ -159,125 +166,81 @@ class SpinState(list):
     def auxiliary(self):
         self.auxiliary_up_to_down()
         self.auxiliary_down_to_up()
+        self.auxiliary_left_to_right()
+        self.auxiliary_right_to_left()
 
     def auxiliary_up_to_down(self):
         if self.flag_up_to_down:
             return
+        n, m = self.size
         self.flag_up_to_down = True
-        # up to down
-        self.UpToDown = [[None for j in range(m)] for i in range(n)]
-        for j in range(m):
-            self.UpToDown[0][j] = self.lat[0][j]
+        self.UpToDown = [None for i in range(n)]
+        self.UpToDown[0] = [self.lat[0][j] for j in range(m)]
         for i in range(1, n-1):
-            #self.UpToDown[i-1], self.lat[i]
+            initial = [None for j in range(m)]
             for j in range(m):
-                self.UpToDown[i][j] = self.UpToDown[i-1][j]
-                """这样初始化真的好么"""
-
-            scan_time = 2
-            for t in range(scan_time):
-                self.UpToDown[i][0], QR_R = self.UpToDown[i][0].tensor_qr(['d'], ['r'], ['r', 'l'])
-                l = [None for i in range(m)]
-                l[0] = self.UpToDown[i-1][0]\
-                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})\
-                    .tensor_contract(self.UpToDown[i][0], ['d'], ['d'], {}, {'r': 'r3'})
-
-                for j in range(1, m-1):
-                    if t == 0:
-                        self.UpToDown[i][j] = np.tensor_contract(self.UpToDown[i][j], QR_R, ['l'], ['r'])
-                    else:
-                        self.UpToDown[i][j] = l[j-1]\
-                            .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                            .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                            .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
-                    self.UpToDown[i][j], QR_R = self.UpToDown[i][j].tensor_qr(['l', 'd'], ['r'], ['r', 'l'])
-                    l[j] = l[j-1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                        .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.UpToDown[i][j], ['r3', 'd'], ['l', 'd'], {}, {'r': 'r3'})
-
-                self.UpToDown[i][m-1] = l[m-2]\
-                    .tensor_contract(self.UpToDown[i-1][m-1], ['r1'], ['l'])\
-                    .tensor_contract(self.lat[i][m-1], ['r2', 'd'], ['l', 'u'], {'r3': 'l'}, {'d': 'u'})
-
-                self.UpToDown[i][m-1], QR_R = self.UpToDown[i][m-1].tensor_qr(['d'], ['l'], ['l', 'r'])
-                r = [None for i in range(m)]
-                r[m-1] = self.UpToDown[i-1][m-1]\
-                    .tensor_contract(self.lat[i][m-1], ['d'], ['u'], {'l': 'l1'}, {'l': 'l2'})\
-                    .tensor_contract(self.UpToDown[i][m-1], ['d'], ['d'], {}, {'l': 'l3'})
-
-                for j in range(m-2, 0, -1):
-                    self.UpToDown[i][j] = l[j-1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                        .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
-                    self.UpToDown[i][j], QR_R = self.UpToDown[i][j].tensor_qr(['r', 'd'], ['l'], ['l', 'r'])
-                    r[j] = r[j+1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
-                        .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'})\
-                        .tensor_contract(self.UpToDown[i][j], ['l3', 'd'], ['r', 'd'], {}, {'l': 'l3'})
-
-                self.UpToDown[i][0] = self.UpToDown[i-1][0]\
-                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})\
-                    .tensor_contract(self.r[1], ['r1', 'r2'], ['l1', 'l2'], {'d': 'u'}, {'l3': 'r'})
+                if j==0:
+                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['d','r'])
+                elif j==m-1:
+                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['d','l'])
+                else:
+                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['d','l','r'])
+            self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
 
     def auxiliary_down_to_up(self):
         if self.flag_down_to_up:
             return
+        n, m = self.size
         self.flag_down_to_up = True
-        # down to up
-        self.DownToUp = [[None for j in range(m)] for i in range(n)]
-        for j in range(m):
-            self.DownToUp[n-1][j] = self.lat[n-1][j]
+        self.DownToUp = [None for i in range(n)]
+        self.DownToUp[n-1] = [self.lat[n-1][j] for j in range(m)]
         for i in range(n-2, 0, -1):
-            #self.DownToUp[i+1], self.lat[i]
+            initial = [None for j in range(m)]
             for j in range(m):
-                self.DownToUp[i][j] = self.DownToUp[i+1][j]
+                if j==0:
+                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['u','r'])
+                elif j==m-1:
+                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['u','l'])
+                else:
+                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['u','l','r'])
+            self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
 
-            scan_time = 2
-            for t in range(scan_time):
-                self.DownToUp[i][0], QR_R = self.DownToUp[i][0].tensor_qr(['u'], ['r'], ['r', 'l'])
-                l = [None for i in range(m)]
-                l[0] = self.DownToUp[i+1][0]\
-                    .tensor_contract(self.lat[i][0], ['u'], ['d'], {'r': 'r1'}, {'r': 'r2'})\
-                    .tensor_contract(self.DownToUp[i][0], ['u'], ['u'], {}, {'r': 'r3'})
 
-                for j in range(1, m-1):
-                    if t == 0:
-                        self.DownToUp[i][j] = np.tensor_contract(self.DownToUp[i][j], QR_R, ['l'], ['r'])
-                    else:
-                        self.DownToUp[i][j] = l[j-1]\
-                            .tensor_contract(self.DownToUp[i+1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                            .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
-                            .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
-                    self.DownToUp[i][j], QR_R = self.DownToUp[i][j].tensor_qr(['l', 'u'], ['r'], ['r', 'l'])
-                    l[j] = l[j-1]\
-                        .tensor_contract(self.DownToUp[i+1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                        .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.DownToUp[i][j], ['r3', 'u'], ['l', 'u'], {}, {'r': 'r3'})
+    def auxiliary_left_to_right(self):
+        if self.flag_left_to_right:
+            return
+        n, m = self.size
+        self.flag_left_to_right = True
+        self.LeftToRight = [None for j in range(m)]
+        self.LeftToRight[0] = [self.lat[i][0] for i in range(n)]
+        for j in range(1, m-1):
+            initial = [None for j in range(n)]
+            for i in range(n):
+                if i==0:
+                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['r','d'])
+                elif i==n-1:
+                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['r','u'])
+                else:
+                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['r','d','u'])
+            self.LeftToRight[j] = auxiliary_generate(m, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
+                    L='u', R='d', U='l', D='r', scan_time=self.scan_time)
 
-                self.DownToUp[i][m-1] = l[m-2]\
-                    .tensor_contract(self.DownToUp[i+1][m-1], ['r1'], ['l'])\
-                    .tensor_contract(self.lat[i][m-1], ['r2', 'u'], ['l', 'd'], {'r3': 'l'}, {'u': 'd'})
-
-                self.DownToUp[i][m-1], QR_R = self.DownToUp[i][m-1].tensor_qr(['u'], ['l'], ['l', 'r'])
-                r = [None for i in range(m)]
-                r[m-1] = self.DownToUp[i+1][m-1]\
-                    .tensor_contract(self.lat[i][m-1], ['u'], ['d'], {'l': 'l1'}, {'l': 'l2'})\
-                    .tensor_contract(self.DownToUp[i][m-1], ['u'], ['u'], {}, {'l': 'l3'})
-
-                for j in range(m-2, 0, -1):
-                    self.DownToUp[i][j] = l[j-1]\
-                        .tensor_contract(self.DownToUp[i+1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                        .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
-                    self.DownToUp[i][j], QR_R = self.DownToUp[i][j].tensor_qr(['r', 'u'], ['l'], ['l', 'r'])
-                    r[j] = r[j+1]\
-                        .tensor_contract(self.DownToUp[i+1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
-                        .tensor_contract(self.lat[i][j], ['l2', 'u'], ['r', 'd'], {}, {'l': 'l2'})\
-                        .tensor_contract(self.DownToUp[i][j], ['l3', 'u'], ['r', 'u'], {}, {'l': 'l3'})
-
-                self.DownToUp[i][0] = self.DownToUp[i+1][0]\
-                    .tensor_contract(self.lat[i][0], ['u'], ['d'], {'r': 'r1'}, {'r': 'r2'})\
-                    .tensor_contract(self.r[1], ['r1', 'r2'], ['l1', 'l2'], {'u': 'd'}, {'l3': 'r'})
+    def auxiliary_right_to_left(self):
+        if self.flag_right_to_left:
+            return
+        n, m = self.size
+        self.flag_right_to_left = True
+        self.RightToLeft = [None for j in range(m)]
+        self.RightToLeft[m-1] = [self.lat[i][m-1] for i in range(n)]
+        for j in range(m-2, 0, -1):
+            initial = [None for j in range(n)]
+            for i in range(n):
+                if i==0:
+                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['l','d'])
+                elif i==n-1:
+                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['l','u'])
+                else:
+                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['l','d','u'])
+            self.RightToLeft[j] = auxiliary_generate(m, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
+                    L='u', R='d', U='r', D='l', scan_time=self.scan_time)
 
