@@ -117,9 +117,9 @@ class SpinState(list):
         self.lattice = lattice.lattice
         self.D = lattice.D
         self.D_c = lattice.D_c
-        # this 3 attr above is read only in SpinState class
-        self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
         self.scan_time = scan_time
+        # these attr above is read only in SpinState class
+        self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
         self.flag_up_to_down = False
         self.flag_down_to_up = False
         self.flag_left_to_right = False
@@ -127,16 +127,18 @@ class SpinState(list):
         self.w_s = None
 
         self.auxiliary()
+        print(self.cal_w_s())
 
     def cal_w_s(self):
         if self.w_s is not None:
             return self._ws
+        n, m = self.size
         self.auxiliary_up_to_down()
         self.w_s = np.tensor_contract(self.UpToDown[n-2][0],self.lat[n-1][0],['d'],['u'],{'r':'r1'},{'r':'r2'})
         for j in range(1,m):
             self.w_s = self.w_s\
                     .tensor_contract(self.UpToDown[n-2][j], ['r1'],['l'],{},{'r':'r1'})\
-                    .tensor_contract(self.lat[n-1][j], ['r2','d'],['l','u'],{},{'r','r2'})
+                    .tensor_contract(self.lat[n-1][j], ['r2','d'],['l','u'],{},{'r': 'r2'})
         return self.w_s
 
     def cal_E_s_and_Delta_s(self):
@@ -204,7 +206,6 @@ class SpinState(list):
                 else:
                     initial[j] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['u','l','r'])
             self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
-
 
     def auxiliary_left_to_right(self):
         if self.flag_left_to_right:
