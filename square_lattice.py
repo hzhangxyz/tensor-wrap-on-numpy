@@ -1,5 +1,66 @@
 import numpy_wrap as np
 
+def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
+    # U to D, scan from L to R
+    res = [initial[i] for i in range(length)]
+    L1 = f'{L}1'
+    L2 = f'{L}2'
+    L3 = f'{L}3'
+    R1 = f'{R}1'
+    R2 = f'{R}2'
+    R3 = f'{R}3'
+
+    for t in range(scan_time):
+        res[0], QR_R = res[0].tensor_qr([D], [R], [R, L])
+        l = [None for i in range(length)]
+        l[0] = former[0]\
+            .tensor_contract(current[0], [D], [U], {R: R1}, {R: R2})\
+            .tensor_contract(res[0], [D], [D], {}, {R: R3})
+
+        for j in range(1, length-1):
+            if t == 0:
+                res[j] = np.tensor_contract(res[j], QR_R, [L], [R])
+                res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L])
+                l[j] = l[j-1]\
+                    .tensor_contract(former[j], [R1], [L], {}, {R: R1})\
+                    .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2})\
+                    .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3})
+            else:
+                tmp = l[j-1]\
+                    .tensor_contract(former[j], [R1], [L], {}, {R: R1})\
+                    .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2})
+                res[j] = tmp\
+                    .tensor_contract(r[j+1], [R1, R2], [L1, L2], {R3: L}, {L3: R})
+                res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L]) # 这里R完全不需要, 而且这里还没cut
+                l[j] = tmp\
+                    .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3})
+
+        res[length-1] = l[length-2]\
+            .tensor_contract(former[length-1], [R1], [L])\
+            .tensor_contract(current[length-1], [R2, D], [L, U], {R3: L}, {})
+
+        res[length-1], QR_R = res[length-1].tensor_qr([D], [L], [L, R])
+        r = [None for i in range(length)]
+        r[length-1] = former[length-1]\
+            .tensor_contract(current[length-1], [D], [U], {L: L1}, {L: L2})\
+            .tensor_contract(res[length-1], [D], [D], {}, {L: L3})
+
+        for j in range(length-2, 0, -1):
+            tmp = r[j+1]\
+                .tensor_contract(former[j], [L1], [R], {}, {L: L1})\
+                .tensor_contract(current[j], [L2, D], [R, U], {}, {L: L2})
+            res[j] = tmp\
+                .tensor_contract(l[j-1], [L1, L2], [R1, R2], {L3: R}, {R3: L})
+            res[j], QR_R = res[j].tensor_qr([R, D], [L], [L, R])
+            r[j] = tmp\
+                .tensor_contract(res[j], [L3, D], [R, D], {}, {L: L3})
+
+        res[0] = former[0]\
+            .tensor_contract(current[0], [D], [U], {R: R1}, {R: R2})\
+            .tensor_contract(r[1], [R1, R2], [L1, L2], {}, {L3: R})
+
+    return res
+
 
 class SqaureLattice():
 
@@ -77,6 +138,7 @@ class SpinState(list):
         第一部分:对角
         第二部分:交换
         """
+        self.auxiliary()
         E_s_diag = 0.
         for i in range(n):
             for j in range(m):
@@ -85,6 +147,12 @@ class SpinState(list):
                 if i != n-1:
                     E_s_diag += 1 if self.spin[i][j] == self.spin[i+1][j] else -1
         E_s_non_diag = 0. # 为相邻两个交换后的w(s)之和
+        #横向j j+1
+        for i in range(n):
+            for j in range(m):
+                pass
+        #纵向i i+1
+
         E_s = E_s_diag + 2*E_s_non_diag/self.cal_w_s()
         return E_s, Delta_s
 
@@ -170,7 +238,7 @@ class SpinState(list):
             for t in range(scan_time):
                 self.DownToUp[i][0], QR_R = self.DownToUp[i][0].tensor_qr(['u'], ['r'], ['r', 'l'])
                 l = [None for i in range(m)]
-                l[0] = self.DownToUp[i-1][0]\
+                l[0] = self.DownToUp[i+1][0]\
                     .tensor_contract(self.lat[i][0], ['u'], ['d'], {'r': 'r1'}, {'r': 'r2'})\
                     .tensor_contract(self.DownToUp[i][0], ['u'], ['u'], {}, {'r': 'r3'})
 
@@ -179,36 +247,37 @@ class SpinState(list):
                         self.DownToUp[i][j] = np.tensor_contract(self.DownToUp[i][j], QR_R, ['l'], ['r'])
                     else:
                         self.DownToUp[i][j] = l[j-1]\
-                            .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
+                            .tensor_contract(self.DownToUp[i+1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                             .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
                             .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
                     self.DownToUp[i][j], QR_R = self.DownToUp[i][j].tensor_qr(['l', 'u'], ['r'], ['r', 'l'])
                     l[j] = l[j-1]\
-                        .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
+                        .tensor_contract(self.DownToUp[i+1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                         .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
                         .tensor_contract(self.DownToUp[i][j], ['r3', 'u'], ['l', 'u'], {}, {'r': 'r3'})
 
                 self.DownToUp[i][m-1] = l[m-2]\
-                    .tensor_contract(self.DownToUp[i-1][m-1], ['r1'], ['l'])\
+                    .tensor_contract(self.DownToUp[i+1][m-1], ['r1'], ['l'])\
                     .tensor_contract(self.lat[i][m-1], ['r2', 'u'], ['l', 'd'], {'r3': 'l'}, {'u': 'd'})
 
                 self.DownToUp[i][m-1], QR_R = self.DownToUp[i][m-1].tensor_qr(['u'], ['l'], ['l', 'r'])
                 r = [None for i in range(m)]
-                r[m-1] = self.DownToUp[i-1][m-1]\
+                r[m-1] = self.DownToUp[i+1][m-1]\
                     .tensor_contract(self.lat[i][m-1], ['u'], ['d'], {'l': 'l1'}, {'l': 'l2'})\
                     .tensor_contract(self.DownToUp[i][m-1], ['u'], ['u'], {}, {'l': 'l3'})
 
                 for j in range(m-2, 0, -1):
                     self.DownToUp[i][j] = l[j-1]\
-                        .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
+                        .tensor_contract(self.DownToUp[i+1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                         .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
                         .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
                     self.DownToUp[i][j], QR_R = self.DownToUp[i][j].tensor_qr(['r', 'u'], ['l'], ['l', 'r'])
                     r[j] = r[j+1]\
-                        .tensor_contract(self.DownToUp[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
+                        .tensor_contract(self.DownToUp[i+1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
                         .tensor_contract(self.lat[i][j], ['l2', 'u'], ['r', 'd'], {}, {'l': 'l2'})\
                         .tensor_contract(self.DownToUp[i][j], ['l3', 'u'], ['r', 'u'], {}, {'l': 'l3'})
 
-                self.DownToUp[i][0] = self.DownToUp[i-1][0]\
+                self.DownToUp[i][0] = self.DownToUp[i+1][0]\
                     .tensor_contract(self.lat[i][0], ['u'], ['d'], {'r': 'r1'}, {'r': 'r2'})\
                     .tensor_contract(self.r[1], ['r1', 'r2'], ['l1', 'l2'], {'u': 'd'}, {'l3': 'r'})
+
