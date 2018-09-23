@@ -17,11 +17,8 @@ class tensor(ndarray):
         if obj is None:
             return
         legs = getattr(obj, 'legs', None)
-        if legs is None:
-            self.legs = legs
-            return
-        self.legs = [str(legs[i]) for i in range(self.ndim)]
-        assert len(set(self.legs)) == len(self.legs), "repeated legs name"
+        self.legs = legs
+        return
 
     def __getitem__(self, args):
         res = super().__getitem__(args)
@@ -80,14 +77,14 @@ class tensor(ndarray):
         pass
     """
 
-    def tensor_svd(self, legs1, legs2, new_legs):
+    def tensor_svd(self, legs1, legs2, new_legs, *args, **kw):
         assert set(legs1) | set(legs2) == set(
             self.legs), "svd legs not correct"
         transposed = self.tensor_transpose([*legs1, *legs2])
-        size1 = prod(self.shape[:len(legs1)])
-        size2 = prod(self.shape[len(legs1):])
+        size1 = prod(transposed.shape[:len(legs1)])
+        size2 = prod(transposed.shape[len(legs1):])
         tensor1, env, tensor2 = linalg.svd(transposed.reshape(
-            [size1, size2]))
+            [size1, size2]), *args, **kw)
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
         tensor2 = tensor2.reshape([*transposed.shape[len(legs1):], tensor2.size//size2])
         if not isinstance(new_legs, list):
@@ -101,14 +98,14 @@ class tensor(ndarray):
         pass
     """
 
-    def tensor_qr(self, legs1, legs2, new_legs):
+    def tensor_qr(self, legs1, legs2, new_legs, *args, **kw):
         assert set(legs1) | set(legs2) == set(
             self.legs), "qr legs not correct"
         transposed = self.tensor_transpose([*legs1, *legs2])
-        size1 = prod(self.shape[:len(legs1)])
-        size2 = prod(self.shape[len(legs1):])
+        size1 = prod(transposed.shape[:len(legs1)])
+        size2 = prod(transposed.shape[len(legs1):])
         tensor1, tensor2 = linalg.qr(transposed.reshape(
-            [size1, size2]))
+            [size1, size2]), *args, **kw)
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
         tensor2 = tensor2.reshape([*transposed.shape[len(legs1):], tensor2.size//size2])
         if not isinstance(new_legs, list):
