@@ -1,5 +1,6 @@
 import numpy_wrap as np
 
+
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
     res = [initial[i] for i in range(length)]
@@ -31,7 +32,7 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
                     .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2})
                 res[j] = tmp\
                     .tensor_contract(r[j+1], [R1, R2], [L1, L2], {R3: L}, {L3: R})
-                res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L]) # 这里R完全不需要, 而且这里还没cut
+                res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L])  # 这里R完全不需要, 而且这里还没cut
                 l[j] = tmp\
                     .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3})
 
@@ -134,11 +135,11 @@ class SpinState(list):
             return self._ws
         n, m = self.size
         self.auxiliary_up_to_down()
-        self.w_s = np.tensor_contract(self.UpToDown[n-2][0],self.lat[n-1][0],['d'],['u'],{'r':'r1'},{'r':'r2'})
-        for j in range(1,m):
+        self.w_s = np.tensor_contract(self.UpToDown[n-2][0], self.lat[n-1][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})
+        for j in range(1, m):
             self.w_s = self.w_s\
-                    .tensor_contract(self.UpToDown[n-2][j], ['r1'],['l'],{},{'r':'r1'})\
-                    .tensor_contract(self.lat[n-1][j], ['r2','d'],['l','u'],{},{'r': 'r2'})
+                .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'})\
+                .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})
         return self.w_s
 
     def cal_E_s_and_Delta_s(self):
@@ -155,12 +156,12 @@ class SpinState(list):
                     E_s_diag += 1 if self.spin[i][j] == self.spin[i][j+1] else -1
                 if i != n-1:
                     E_s_diag += 1 if self.spin[i][j] == self.spin[i+1][j] else -1
-        E_s_non_diag = 0. # 为相邻两个交换后的w(s)之和
-        #横向j j+1
+        E_s_non_diag = 0.  # 为相邻两个交换后的w(s)之和
+        # 横向j j+1
         for i in range(n):
             for j in range(m):
                 pass
-        #纵向i i+1
+        # 纵向i i+1
 
         E_s = E_s_diag + 2*E_s_non_diag/self.cal_w_s()
         return E_s, Delta_s
@@ -181,12 +182,12 @@ class SpinState(list):
         for i in range(1, n-1):
             initial = [None for j in range(m)]
             for j in range(m):
-                if j==0:
-                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['d','r'])
-                elif j==m-1:
-                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['d','l'])
+                if j == 0:
+                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['d', 'r'])
+                elif j == m-1:
+                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['d', 'l'])
                 else:
-                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['d','l','r'])
+                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['d', 'l', 'r'])
             self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
 
     def auxiliary_down_to_up(self):
@@ -199,12 +200,12 @@ class SpinState(list):
         for i in range(n-2, 0, -1):
             initial = [None for j in range(m)]
             for j in range(m):
-                if j==0:
-                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['u','r'])
-                elif j==m-1:
-                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c),legs=['u','l'])
+                if j == 0:
+                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['u', 'r'])
+                elif j == m-1:
+                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['u', 'l'])
                 else:
-                    initial[j] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['u','l','r'])
+                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['u', 'l', 'r'])
             self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
 
     def auxiliary_left_to_right(self):
@@ -217,14 +218,14 @@ class SpinState(list):
         for j in range(1, m-1):
             initial = [None for j in range(n)]
             for i in range(n):
-                if i==0:
-                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['r','d'])
-                elif i==n-1:
-                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['r','u'])
+                if i == 0:
+                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['r', 'd'])
+                elif i == n-1:
+                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['r', 'u'])
                 else:
-                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['r','d','u'])
+                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['r', 'd', 'u'])
             self.LeftToRight[j] = auxiliary_generate(m, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
-                    L='u', R='d', U='l', D='r', scan_time=self.scan_time)
+                                                     L='u', R='d', U='l', D='r', scan_time=self.scan_time)
 
     def auxiliary_right_to_left(self):
         if self.flag_right_to_left:
@@ -236,12 +237,11 @@ class SpinState(list):
         for j in range(m-2, 0, -1):
             initial = [None for j in range(n)]
             for i in range(n):
-                if i==0:
-                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['l','d'])
-                elif i==n-1:
-                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c),legs=['l','u'])
+                if i == 0:
+                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['l', 'd'])
+                elif i == n-1:
+                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['l', 'u'])
                 else:
-                    initial[i] = np.tensor(np.random.rand(self.D,self.D_c,self.D_c),legs=['l','d','u'])
+                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['l', 'd', 'u'])
             self.RightToLeft[j] = auxiliary_generate(m, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
-                    L='u', R='d', U='r', D='l', scan_time=self.scan_time)
-
+                                                     L='u', R='d', U='r', D='l', scan_time=self.scan_time)
