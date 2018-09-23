@@ -17,7 +17,6 @@ class tensor(ndarray):
         if legs is None:
             self.legs = legs
             return
-        print("legs",legs)
         self.legs = [str(legs[i]) for i in range(self.ndim) ]
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
 
@@ -28,10 +27,7 @@ class tensor(ndarray):
 
     def rename_legs(self, legs_dict):
         for i, j in legs_dict.items():
-            try:
-                self.legs[self.legs.index(str(i))] = str(j)
-            except Exception as e:
-                raise Exception("error when rename legs") from e
+            self.legs[self.legs.index(str(i))] = str(j)
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
         return self
 
@@ -55,5 +51,41 @@ class tensor(ndarray):
         res = tensordot(tensor1, tensor2, [order1, order2])
         return self.__class__(res, legs=legs)
 
-    def tensor_svd():
+    """
+    def __matmul__(self, b):
+        res = super().dot(b)
+        if self.ndim is not 2 or b.ndim is not 2:
+            raise Exception("ambiguous dot")
+        res.rename_legs({self.legs[1]:b.legs[1]})
+        return res
+    """
+
+    """
+    def inverse(self):
+        res = linalg.inv(self)
         pass
+    """
+
+    def tensor_svd(self, legs1, legs2, new_legs):
+        assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
+        transposed = self.tensor_transpose([*legs1, *legs2])
+        size1 = prod(self.shape[:len(legs1)])
+        size2 = prod(self.shape[len(legs1):])
+        tensor1, env, tensor2 = linalg.svd(transposed.reshape(
+            [size1, size2]))
+        tensor1.resize([*transposed.shape[:len(legs1)],tensor1.size//size1])
+        tensor2.resize([*transposed.shape[len(legs1):],tensor2.size//size2])
+        tensor1.set_legs([*legs1,new_legs])
+        tensor2.set_legs([*legs2,new_legs])
+        return tensor1, env, tensor2
+
+    def tensor_svd_cut():
+        pass
+
+    def tensor_qr():
+        pass
+
+tensor_transpose = tensor.tensor_transpose
+tensor_contract = tensor.tensor_contract
+tensor_svd = tensor.tensor_svd
+tensor_qr = tensor.tensor_qr
