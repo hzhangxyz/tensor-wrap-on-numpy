@@ -42,23 +42,48 @@ class SqaureLattice():
 
 class SpinState(list):
 
-    def __new__(cls, lattice):
+    def __new__(cls, lattice, spin_state=None):
         obj = super().__new__(SpinState)
+        return obj
+
+    def __init__(self, lattice, spin_state=None):
+        if spin_state:
+            super().__init__(spin_state)
+        else:
+            super().__init__([[(i+j)%2
+                for j in range(self.size[1])]
+                for i in range(self.size[0])]) #!!
         obj.size = lattice[0].size
         obj.lattice = lattice[0].lattice
         obj.D = lattice[0].D
         # this 3 attr above is read only in SpinState class
-        return obj
-
-    def __init__(self, args):
-        super().__init__([[(i+j)%2
-            for j in range(self.size[1])] for i in range(self.size[0])]) #!!
+        self.lat = [[self.lattice[i][j][self.spin[i][j]]
+                for j in range(self.size[1])]
+                for i in range(self.size[0])]
+        self.auxiliary()
 
     def auxiliary(self):
         # up to down
-        UpToDown = [[None for j in range(m)] for i in range(n)]
+        self.UpToDown = [[None for j in range(m)] for i in range(n)]
         for j in range(m):
-            UpToDown[0][j] = self.lattice
+            self.UpToDown[0][j] = self.lat[0][j]
+        for i in range(1,n-1):
+            #self.UpToDown[i-1], self.lat[i]
+            for j in range(m):
+                self.UpToDown[i][j] = self.UpToDown[i-1][j] #
+            self.UpToDown[i][0], r = self.UpToDown[i][0].tensor_qr(
+                    ['d'],['r'],['r','l'])
+            l = [np.tensor_contract(self.UpToDown[i-1][0],self.lat[i],
+                    ['d'],['u'],{"r":"r1"},{"r":"r2"})]
+            for j in range(1,m-1):
+                self.UpToDown[i][j] = np.tensor_contract(
+                        self.UpToDown[i], r, ['l'], ['r'])
+                self.UpToDown[i][j], r = self.UpToDown[i][j].tensor_qr(
+                        ['l','d'],['r'],['r','l'])
+                l_tmp = l[-1]
+                np.tensor_contract(l_tmp,self.lat)
+            self.UpToDown[i][m-1]
+
 
     def cal_E_s(self):
         """
