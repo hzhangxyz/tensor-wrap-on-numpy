@@ -64,7 +64,12 @@ class SpinState(list):
         if self.w_s is not None:
             return self._ws
         self.auxiliary_up_to_down()
-        self.w_s = 1
+        self.w_s = np.tensor_contract(self.UpToDown[n-2][0],self.lat[n-1][0],['d'],['u'],{'r':'r1'},{'r':'r2'})
+        for j in range(1,m):
+            self.w_s = self.w_s\
+                    .tensor_contract(self.UpToDown[n-2][j], ['r1'],['l'],{},{'r':'r1'})\
+                    .tensor_contract(self.lat[n-1][j], ['r2','d'],['l','u'],{},{'r','r2'})
+        return self.w_s
 
     def cal_E_s_and_Delta_s(self):
         """
@@ -72,15 +77,16 @@ class SpinState(list):
         第一部分:对角
         第二部分:交换
         """
-        E_s_diag = 0
+        E_s_diag = 0.
         for i in range(n):
             for j in range(m):
                 if j != m-1:
                     E_s_diag += 1 if self.spin[i][j] == self.spin[i][j+1] else -1
                 if i != n-1:
                     E_s_diag += 1 if self.spin[i][j] == self.spin[i+1][j] else -1
-        E_s_non_diag = 0
-        E_s = E_s_diag + E_s_diag / self.cal_w_s()
+        E_s_non_diag = 0. # 为相邻两个交换后的w(s)之和
+        E_s = E_s_diag + 2*E_s_non_diag/self.cal_w_s()
+        return E_s, Delta_s
 
     def auxiliary(self):
         self.auxiliary_up_to_down()

@@ -55,8 +55,10 @@ class tensor(ndarray):
         tensor2 = tensor
         legs_dict1 = {} if legs_dict1 is None else legs_dict1
         legs_dict2 = {} if legs_dict2 is None else legs_dict2
-        order1 = [tensor1.legs.index(str(i)) for i in legs1]
-        order2 = [tensor2.legs.index(str(i)) for i in legs2]
+        tmp_order1 = [tensor1.legs.index(str(i)) for i in legs1]
+        tmp_order2 = [tensor2.legs.index(str(i)) for i in legs2]
+        order1 = [i for i,j in zip(tmp_order1,tmp_order2) if i!=-1 and j!=-1]
+        order2 = [j for i,j in zip(tmp_order1,tmp_order2) if i!=-1 and j!=-1]
         legs = [j if j not in legs_dict1 else legs_dict1[j]
                 for j in tensor1.legs if j not in legs1] +\
             [j if j not in legs_dict2 else legs_dict2[j]
