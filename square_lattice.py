@@ -67,22 +67,53 @@ class SpinState(list):
             #self.UpToDown[i-1], self.lat[i]
             for j in range(m):
                 self.UpToDown[i][j] = self.UpToDown[i-1][j]
-            self.UpToDown[i][0], r = self.UpToDown[i][0].tensor_qr(['d'], ['r'], ['r', 'l'])
-            l = [None for i in range(m)]
-            r = [None for i in range(m)]
-            l[0] = self.UpToDown[i-1][0]\
-                 .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})\
-                 .tensor_contract(self.UpToDown[i][0], ['d'], ['d'], {}, {'r': 'r3'})
-            for j in range(1, m-1):
-                self.UpToDown[i][j] = np.tensor_contract(self.UpToDown[i], r, ['l'], ['r'])
-                self.UpToDown[i][j], r = self.UpToDown[i][j].tensor_qr(['l', 'd'], ['r'], ['r', 'l'])
-                l[j] = l[j-1]\
-                    .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                    .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                    .tensor_contract(self.UpToDown[i][j], ['r3', 'd'], ['l', 'd'], {}, {'r': 'r3'})
-            self.UpToDown[i][m-1] = l[m-2]\
-                .tensor_contract(self.UpToDown[i-1][m-1], ['r1'], ['l'])\
-                .tensor_contract(self.lat[i][m-1], ['r2', 'd'], ['l', 'u'], {'r1': 'l'}, {'d': 'u'})
+
+            scan_time = 2
+            for t in range(scan_time):
+                self.UpToDown[i][0], QR_R = self.UpToDown[i][0].tensor_qr(['d'], ['r'], ['r', 'l'])
+                l = [None for i in range(m)]
+                l[0] = self.UpToDown[i-1][0]\
+                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})\
+                    .tensor_contract(self.UpToDown[i][0], ['d'], ['d'], {}, {'r': 'r3'})
+
+                for j in range(1, m-1):
+                    if t == 0:
+                        self.UpToDown[i][j] = np.tensor_contract(self.UpToDown[i][j], QR_R, ['l'], ['r'])
+                    else:
+                        self.UpToDown[i][j] = l[j-1]\
+                            .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'])\
+                            .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
+                            .tensor_contract(self.r[j+1], ['r', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
+                    self.UpToDown[i][j], QR_R = self.UpToDown[i][j].tensor_qr(['l', 'd'], ['r'], ['r', 'l'])
+                    l[j] = l[j-1]\
+                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
+                        .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
+                        .tensor_contract(self.UpToDown[i][j], ['r3', 'd'], ['l', 'd'], {}, {'r': 'r3'})
+
+                self.UpToDown[i][m-1] = l[m-2]\
+                    .tensor_contract(self.UpToDown[i-1][m-1], ['r1'], ['l'])\
+                    .tensor_contract(self.lat[i][m-1], ['r2', 'd'], ['l', 'u'], {'r1': 'l'}, {'d': 'u'})
+
+                self.UpToDown[i][m-1], QR_R = self.UpToDown[i][m-1].tensor_qr(['d'], ['l'], ['l', 'r'])
+                r = [None for i in range(m)]
+                r[m-1] = self.UpToDown[i-1][m-1]\
+                    .tensor_contract(self.lat[i][m-1], ['d'], ['u'], {'l': 'l1'}, {'l': 'l2'})\
+                    .tensor_contract(self.UpToDown[i][m-1], ['d'], ['d'], {}, {'l': 'l3'})
+
+                for j in range(m-2, 0, -1):
+                    self.UpToDown[i][j] = l[j-1]\
+                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'])\
+                        .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
+                        .tensor_contract(self.r[j+1], ['r', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
+                    self.UpToDown[i][j], QR_R = self.UpToDown[i][j].tensor_qr(['r', 'd'], ['l'], ['l', 'r'])
+                    r[j] = r[j+1]\
+                        .tensor_contract(self.UpToDown[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
+                        .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'})\
+                        .tensor_contract(self.UpToDown[i][j], ['l3', 'd'], ['r', 'd'], {}, {'l': 'l3'})
+
+                self.UpToDown[i][0] = self.UpToDown[i-1][0]\
+                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {}, {'r': 'r2'})\
+                    .tensor_contract(self.r[1], ['r', 'r2'], ['l1', 'l2'], {'d': 'u'}, {'l3': 'r'})
 
     def cal_E_s(self):
         """
