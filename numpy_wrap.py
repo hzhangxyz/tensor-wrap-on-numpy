@@ -82,8 +82,18 @@ class tensor(ndarray):
     def tensor_svd_cut():
         pass
 
-    def tensor_qr():
-        pass
+    def tensor_qr(self, legs1, legs2, new_legs):
+        assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
+        transposed = self.tensor_transpose([*legs1, *legs2])
+        size1 = prod(self.shape[:len(legs1)])
+        size2 = prod(self.shape[len(legs1):])
+        tensor1, tensor2 = linalg.qr(transposed.reshape(
+            [size1, size2]))
+        tensor1.resize([*transposed.shape[:len(legs1)],tensor1.size//size1])
+        tensor2.resize([*transposed.shape[len(legs1):],tensor2.size//size2])
+        tensor1.set_legs([*legs1,new_legs])
+        tensor2.set_legs([*legs2,new_legs])
+        return tensor1, tensor2
 
 tensor_transpose = tensor.tensor_transpose
 tensor_contract = tensor.tensor_contract
