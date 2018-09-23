@@ -20,6 +20,17 @@ class tensor(ndarray):
         self.legs = [str(legs[i]) for i in range(self.ndim) ]
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
 
+    def __getitem__(self, args):
+        res = super().__getitem__(args)
+        if not isinstance(res, ndarray):
+            return res
+        if isinstance(args, int):
+            args = (args,)
+        legs_to_del = [i for i,j in enumerate(args) if isinstance(j, int)]
+        tmp_legs = [j for i,j in enumerate(self.legs) if i not in legs_to_del]
+        res.set_legs(tmp_legs)
+        return res
+
     def set_legs(self, legs):
         self.legs = [str(legs[i]) for i in range(self.ndim) ]
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
@@ -79,8 +90,10 @@ class tensor(ndarray):
         tensor2.set_legs([*legs2,new_legs])
         return tensor1, env, tensor2
 
+    """
     def tensor_svd_cut():
         pass
+    """
 
     def tensor_qr(self, legs1, legs2, new_legs):
         assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
