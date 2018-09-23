@@ -56,9 +56,40 @@ class SpinState(list):
         obj.D = lattice[0].D
         # this 3 attr above is read only in SpinState class
         self.lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
-        self.auxiliary()
+        self.flag_up_to_down = False
+        self.flag_down_to_up = False
+        self.w_s = None
+
+    def cal_w_s(self):
+        if self.w_s is not None:
+            return self._ws
+        self.auxiliary_up_to_down()
+        self.w_s = 1
+
+    def cal_E_s_and_Delta_s(self):
+        """
+        E_s=\sum_{s'} W(s')/W(s) H_{ss'}
+        第一部分:对角
+        第二部分:交换
+        """
+        E_s_diag = 0
+        for i in range(n):
+            for j in range(m):
+                if j != m-1:
+                    E_s_diag += 1 if self.spin[i][j] == self.spin[i][j+1] else -1
+                if i != n-1:
+                    E_s_diag += 1 if self.spin[i][j] == self.spin[i+1][j] else -1
+        E_s_non_diag = 0
+        E_s = E_s_diag + E_s_diag / self.cal_w_s()
 
     def auxiliary(self):
+        self.auxiliary_up_to_down()
+        self.auxiliary_down_to_up()
+
+    def auxiliary_up_to_down(self):
+        if self.flag_up_to_down:
+            return
+        self.flag_up_to_down = True
         # up to down
         self.UpToDown = [[None for j in range(m)] for i in range(n)]
         for j in range(m):
@@ -82,9 +113,9 @@ class SpinState(list):
                         self.UpToDown[i][j] = np.tensor_contract(self.UpToDown[i][j], QR_R, ['l'], ['r'])
                     else:
                         self.UpToDown[i][j] = l[j-1]\
-                            .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'])\
+                            .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                             .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                            .tensor_contract(self.r[j+1], ['r', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
+                            .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
                     self.UpToDown[i][j], QR_R = self.UpToDown[i][j].tensor_qr(['l', 'd'], ['r'], ['r', 'l'])
                     l[j] = l[j-1]\
                         .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
@@ -93,7 +124,7 @@ class SpinState(list):
 
                 self.UpToDown[i][m-1] = l[m-2]\
                     .tensor_contract(self.UpToDown[i-1][m-1], ['r1'], ['l'])\
-                    .tensor_contract(self.lat[i][m-1], ['r2', 'd'], ['l', 'u'], {'r1': 'l'}, {'d': 'u'})
+                    .tensor_contract(self.lat[i][m-1], ['r2', 'd'], ['l', 'u'], {'r3': 'l'}, {'d': 'u'})
 
                 self.UpToDown[i][m-1], QR_R = self.UpToDown[i][m-1].tensor_qr(['d'], ['l'], ['l', 'r'])
                 r = [None for i in range(m)]
@@ -103,9 +134,9 @@ class SpinState(list):
 
                 for j in range(m-2, 0, -1):
                     self.UpToDown[i][j] = l[j-1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'])\
+                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                         .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.r[j+1], ['r', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
+                        .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'd': 'u'}, {'l3': 'r'})
                     self.UpToDown[i][j], QR_R = self.UpToDown[i][j].tensor_qr(['r', 'd'], ['l'], ['l', 'r'])
                     r[j] = r[j+1]\
                         .tensor_contract(self.UpToDown[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
@@ -113,9 +144,13 @@ class SpinState(list):
                         .tensor_contract(self.UpToDown[i][j], ['l3', 'd'], ['r', 'd'], {}, {'l': 'l3'})
 
                 self.UpToDown[i][0] = self.UpToDown[i-1][0]\
-                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {}, {'r': 'r2'})\
-                    .tensor_contract(self.r[1], ['r', 'r2'], ['l1', 'l2'], {'d': 'u'}, {'l3': 'r'})
+                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})\
+                    .tensor_contract(self.r[1], ['r1', 'r2'], ['l1', 'l2'], {'d': 'u'}, {'l3': 'r'})
 
+    def auxiliary_down_to_up(self):
+        if self.flag_down_to_up:
+            return
+        self.flag_down_to_up = True
         # down to up
         self.DownToUp = [[None for j in range(m)] for i in range(n)]
         for j in range(m):
@@ -138,9 +173,9 @@ class SpinState(list):
                         self.DownToUp[i][j] = np.tensor_contract(self.DownToUp[i][j], QR_R, ['l'], ['r'])
                     else:
                         self.DownToUp[i][j] = l[j-1]\
-                            .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'])\
+                            .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                             .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
-                            .tensor_contract(self.r[j+1], ['r', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
+                            .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
                     self.DownToUp[i][j], QR_R = self.DownToUp[i][j].tensor_qr(['l', 'u'], ['r'], ['r', 'l'])
                     l[j] = l[j-1]\
                         .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
@@ -149,7 +184,7 @@ class SpinState(list):
 
                 self.DownToUp[i][m-1] = l[m-2]\
                     .tensor_contract(self.DownToUp[i-1][m-1], ['r1'], ['l'])\
-                    .tensor_contract(self.lat[i][m-1], ['r2', 'u'], ['l', 'd'], {'r1': 'l'}, {'u': 'd'})
+                    .tensor_contract(self.lat[i][m-1], ['r2', 'u'], ['l', 'd'], {'r3': 'l'}, {'u': 'd'})
 
                 self.DownToUp[i][m-1], QR_R = self.DownToUp[i][m-1].tensor_qr(['u'], ['l'], ['l', 'r'])
                 r = [None for i in range(m)]
@@ -159,9 +194,9 @@ class SpinState(list):
 
                 for j in range(m-2, 0, -1):
                     self.DownToUp[i][j] = l[j-1]\
-                        .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'])\
+                        .tensor_contract(self.DownToUp[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                         .tensor_contract(self.lat[i][j], ['r2', 'u'], ['l', 'd'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.r[j+1], ['r', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
+                        .tensor_contract(self.r[j+1], ['r1', 'r2'], ['l1', 'l2'], {'r3': 'l', 'u': 'd'}, {'l3': 'r'})
                     self.DownToUp[i][j], QR_R = self.DownToUp[i][j].tensor_qr(['r', 'u'], ['l'], ['l', 'r'])
                     r[j] = r[j+1]\
                         .tensor_contract(self.DownToUp[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
@@ -169,20 +204,5 @@ class SpinState(list):
                         .tensor_contract(self.DownToUp[i][j], ['l3', 'u'], ['r', 'u'], {}, {'l': 'l3'})
 
                 self.DownToUp[i][0] = self.DownToUp[i-1][0]\
-                    .tensor_contract(self.lat[i][0], ['u'], ['d'], {}, {'r': 'r2'})\
-                    .tensor_contract(self.r[1], ['r', 'r2'], ['l1', 'l2'], {'u': 'd'}, {'l3': 'r'})
-
-    def cal_E_s(self):
-        """
-        E_s=\sum_{s'} W(s')/W(s) H_{ss'}
-        第一部分:对角
-        第二部分:交换
-        """
-        Es = 0
-        for i in range(n):
-            for j in range(m):
-                if j != m-1:
-                    Es += 1 if self.spin[i][j] == self.spin[i][j] else -1
-
-    def cal_Delta_s(self):
-        pass
+                    .tensor_contract(self.lat[i][0], ['u'], ['d'], {'r': 'r1'}, {'r': 'r2'})\
+                    .tensor_contract(self.r[1], ['r1', 'r2'], ['l1', 'l2'], {'u': 'd'}, {'l3': 'r'})
