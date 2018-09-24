@@ -187,6 +187,7 @@ class SpinState(list):
         alter = type(self)(self.lattice, self)
         alter[choosed[0]][choosed[1]] = 1 - alter[choosed[0]][choosed[1]]
         alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
+        alter.fresh()
         alter_pool = alter.__gen_markov_chain_pool()
         possibility = (alter.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
         # print("possi",possibility)
@@ -200,10 +201,6 @@ class SpinState(list):
         obj.size = lattice.size
         obj.D = lattice.D
         return obj
-
-    def __setitem__(self, *args):
-        super().__setitem__(*args)
-        self.fresh()
 
     def fresh(self):
         # 在spin或者lattice变化时call 之
