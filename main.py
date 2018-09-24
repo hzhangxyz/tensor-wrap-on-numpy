@@ -14,6 +14,8 @@ parser.add_argument('-f','--load-from',dest='load_from')
 parser.add_argument('-p','--save-prefix',dest='save_prefix')
 args = parser.parse_args()
 
+np.random.seed(0)
+
 lattice = sl.SquareLattice(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov_chain_length, args.load_from, args.save_prefix)
 
 lattice.grad_descent()
