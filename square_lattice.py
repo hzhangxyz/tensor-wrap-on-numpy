@@ -111,7 +111,7 @@ class SpinState(list):
         obj.size = lattice.size
         return obj
 
-    def __init__(self, lattice, scan_time=2, spin_state=None):
+    def __init__(self, lattice, spin_state=None):
         if spin_state:
             super().__init__(spin_state)
         else:
@@ -140,31 +140,42 @@ class SpinState(list):
                 .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'})\
                 .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})
 
-        if True:
-            return self.w_s
-        print(self.w_s)
+        return self.w_s
 
+    def test_w_s(self):
+        n, m = self.size
         self.auxiliary()
-        self.w_s = np.tensor_contract(self.DownToUp[1][0], self.lat[0][0], ['u'], ['d'], {'r': 'r2'}, {'r': 'r1'})
-        for j in range(1, m):
-            self.w_s = self.w_s\
-                .tensor_contract(self.DownToUp[1][j], ['r2'], ['l'], {}, {'r': 'r2'})\
-                .tensor_contract(self.lat[0][j], ['r1', 'u'], ['l', 'd'], {}, {'r': 'r1'})
-        print(self.w_s)
+        res = []
 
-        self.w_s = np.tensor_contract(self.LeftToRight[0][m-2], self.lat[0][m-1], ['r'], ['l'], {'d': 'd1'}, {'d': 'd2'})
-        for i in range(1, n):
+        self.w_s = np.tensor(1)
+        for j in range(0, m):
             self.w_s = self.w_s\
-                .tensor_contract(self.LeftToRight[i][m-2], ['d1'], ['u'], {}, {'d': 'd1'})\
-                .tensor_contract(self.lat[i][m-1], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'})
-        print(self.w_s)
+                .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+        res.append(self.w_s)
 
-        self.w_s = np.tensor_contract(self.RightToLeft[0][1], self.lat[0][0], ['l'], ['r'], {'d': 'd2'}, {'d': 'd1'})
-        for i in range(1, n):
+        self.w_s = np.tensor(1)
+        for j in range(0, m):
             self.w_s = self.w_s\
-                .tensor_contract(self.RightToLeft[i][1], ['d2'], ['u'], {}, {'d': 'd2'})\
-                .tensor_contract(self.lat[i][0], ['d1', 'l'], ['u', 'r'], {}, {'d': 'd1'})
-        print(self.w_s)
+                .tensor_contract(self.DownToUp[1][j], ['r2'], ['l'], {}, {'r': 'r2'}, restrict_mode=False)\
+                .tensor_contract(self.lat[0][j], ['r1', 'u'], ['l', 'd'], {}, {'r': 'r1'}, restrict_mode=False)
+        res.append(self.w_s)
+
+        self.w_s = np.tensor(1)
+        for i in range(0, n):
+            self.w_s = self.w_s\
+                .tensor_contract(self.LeftToRight[i][m-2], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
+                .tensor_contract(self.lat[i][m-1], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+        res.append(self.w_s)
+
+        self.w_s = np.tensor(1)
+        for i in range(0, n):
+            self.w_s = self.w_s\
+                .tensor_contract(self.RightToLeft[i][1], ['d2'], ['u'], {}, {'d': 'd2'}, restrict_mode=False)\
+                .tensor_contract(self.lat[i][0], ['d1', 'l'], ['u', 'r'], {}, {'d': 'd1'}, restrict_mode=False)
+        res.append(self.w_s)
+
+        return res
 
     def cal_E_s_and_Delta_s(self):
         """
@@ -230,6 +241,7 @@ class SpinState(list):
                         .tensor_contract(self.UpToDown[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
                         .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'})\
                         .tensor_contract(self.DownToUp[i+1][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'})
+            # 计算 delta
             for j in range(m):
                 if i == 0:
                     if j == 0:
@@ -264,6 +276,17 @@ class SpinState(list):
                             np.tensor_contract(r[j+1], self.DownToUp[i+1][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}),
                             ['r1', 'r3'], ['l1', 'l3'])
                 Delta_s[i][j] /= self.cal_w_s()
+            # 计算Es
+            for j in range(m-1):
+                if self.lat[i][j] != self.lat[i][j+1]:
+                    tmp = None
+                    if i == 0:
+                        pass
+                    elif i == n-1:
+                        pass
+                    else:
+                        pass
+                    E_s_non_diag += tmp
 
         # 纵向i i+1
 
