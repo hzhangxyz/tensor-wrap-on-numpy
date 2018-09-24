@@ -86,19 +86,21 @@ class SquareLattice(list):
         return obj
 
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix=None):
-        if not os.path.exists(load_from):
-            load_from = None
-        if load_from == None:
+        if load_from == None || os.path.exists(load_from):
             super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
             self.D_c = D_c
             self.scan_time = scan_time
             self.spin = SpinState(self, spin_state=None)
+
+            self.load_from = None
         else:
             prepare = np.load(load_from)
             super().__init__([[np.tensor(prepare[f'node_{i}_{j}'],legs=prepare[f'legs_{i}_{j}']) for j in range(m)] for i in range(n)]) # random init
             self.D_c = D_c
             self.scan_time = scan_time
             self.spin = SpinState(self, spin_state=prepare['spin'])
+
+            self.load_from = load_from
 
         if save_prefix is None:
             self.save_prefix = time.strftime("run/%Y%m%d%H%M%S",time.gmtime())
