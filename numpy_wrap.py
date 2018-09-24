@@ -31,6 +31,9 @@ class tensor(ndarray):
         res.set_legs(tmp_legs)
         return res
 
+    def __add__(self, args):
+        return super().__add__(args.tensor_transpose(self.legs))
+
     def set_legs(self, legs):
         self.legs = [str(legs[i]) for i in range(self.ndim)]
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"

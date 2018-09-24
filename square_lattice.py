@@ -63,7 +63,7 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
     return res
 
 
-class SquareLattice():
+class SquareLattice(list):
 
     def __create_node(self, i, j):
         legs = "lrud"
@@ -77,29 +77,32 @@ class SquareLattice():
             legs = legs.replace("r", "")
         return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
 
+    def __new__(self, n, m, D, *args):
+        obj = super().__new__(SquareLattice)
+        obj.size = n, m
+        obj.D = D
+        return obj
+
     def __init__(self, n, m, D, D_c, scan_time=2):
-        self.size = (n, m)
-        self.D = D
+        super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
         self.D_c = D
         self.scan_time = scan_time
-        self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
-        self.spin = SpinState(self)
-        #self.markov_chain_length = 1000
-        #self.hamiltonian = np.tenor(np.reshape([1,0,0,0,0,-1,2,0,0,2,-1,0,0,0,0,1],[2,2,2,2]),legs=["p1","p2","P1","P2"])
+        self.spin = SpinState(self, spin_state=None)
+        self.markov_chain_length = 10
 
-    def markov_chain(self, markov_chain_length):
-        sum_E_s = 0
-        # sum_Delta_s =
-        for i in range(markov_chain_length):
-            E_s = self.spin.cal_E_s()
-            Delta_s = self.spin.cal_E_s()
+    def markov_chain(self):
+        n, m = self.size
+        sum_E_s = np.tensor(0.)
+        sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape),self[i][j].legs) for j in range(m)]for i in range(n)]
+        for i in range(self.markov_chain_length):
+            E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
             sum_E_s += E_s
             Delta_s += Delta_s
             Prod += E_s * Delta_s
             new_spin = self.spin.hop()
             if check(new_spin):
                 self.spin = new_spin
-        Grad = 2*Prod - 2*sum_E_s*sum_Delta_s
+        Grad = 2.*Prod/markove_chain_length - 2.*sum_E_s*sum_Delta_s/(markov_chain_length)**2
         Energy = sum_E_s
         return Energy, Grad
 
@@ -116,7 +119,7 @@ class SpinState(list):
             super().__init__(spin_state)
         else:
             super().__init__([[(i+j) % 2 for j in range(self.size[1])] for i in range(self.size[0])])  # !!
-        self.lattice = lattice.lattice
+        self.lattice = lattice
         self.D = lattice.D
         self.D_c = lattice.D_c
         self.scan_time = lattice.scan_time
