@@ -24,7 +24,7 @@ class tensor(ndarray):
         res = super().__getitem__(args)
         if not isinstance(res, ndarray):
             return res
-        if isinstance(args, int):
+        if not isinstance(args, tuple):
             args = (args,)
         legs_to_del = [i for i, j in enumerate(args) if isinstance(j, int)]
         tmp_legs = [j for i, j in enumerate(self.legs) if i not in legs_to_del]

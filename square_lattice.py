@@ -1,5 +1,6 @@
 import numpy_wrap as np
-
+import time
+import os
 
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
@@ -66,41 +67,70 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
 class SquareLattice(list):
 
     def __create_node(self, i, j):
-        legs = "lrud"
+        legs = 'lrud'
         if i == 0:
-            legs = legs.replace("u", "")
+            legs = legs.replace('u', '')
         if i == self.size[0]-1:
-            legs = legs.replace("d", "")
+            legs = legs.replace('d', '')
         if j == 0:
-            legs = legs.replace("l", "")
+            legs = legs.replace('l', '')
         if j == self.size[1]-1:
-            legs = legs.replace("r", "")
+            legs = legs.replace('r', '')
         return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
 
-    def __new__(self, n, m, D, *args, **kw):
+    def __new__(self, n, m, D, D_c, scan_time, *args, **kw):
         obj = super().__new__(SquareLattice)
         obj.size = n, m
         obj.D = D
+
         return obj
 
-    def __init__(self, n, m, D, D_c, scan_time=2, step_size=0, markov_chain_length=1000, grad_step=10):
-        super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
-        self.D_c = D_c
-        self.scan_time = scan_time
-        self.spin = SpinState(self, spin_state=None)
+    def __init__(self, n, m, D, D_c, scan_time=2, step_size=0, markov_chain_length=1000, load_from=None, save_prefix=None):
+        if load_from == None:
+            super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
+            self.D_c = D_c
+            self.scan_time = scan_time
+            self.spin = SpinState(self, spin_state=None)
+        else:
+            prepare = np.load(load_from)
+            super().__init__([[np.tensor(prepare[f'node_{i}_{j}'],legs=prepare[f'legs_{i}_{j}']) for j in range(m)] for i in range(n)]) # random init
+            self.D_c = D_c
+            self.scan_time = scan_time
+            self.spin = SpinState(self, spin_state=prepare['spin'])
+
+        if save_prefix is None:
+            self.save_prefix = time.strftime("run/%Y%m%d%H%M%S",time.gmtime())
+        else:
+            self.save_prefix = save_prefix
+
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
-        self.grad_step = grad_step
 
-    def grad(self):
+    def save(self, name, energy=None):
         n, m = self.size
-        for t in range(self.grad_step):
+        prepare = {'spin': np.array(self.spin, dtype=int)}
+        if energy is not None:
+            prepare["energy"] = energy
+        for i in range(n):
+            for j in range(m):
+                prepare[f'node_{i}_{j}'] = self[i][j]
+                prepare[f'legs_{i}_{j}'] = self[i][j].legs
+        os.makedirs(os.path.split(name)[0], exist_ok=True)
+        np.savez_compressed(name, **prepare)
+
+    def grad_descent(self):
+        n, m = self.size
+        t = 0
+        while True:
             energy, grad = self.markov_chain()
             for i in range(n):
                 for j in range(m):
                     self[i][j] -= self.step_size*grad[i][j]
             self.spin.fresh()
-            print(energy)
+            self.save(f'{self.save_prefix}/{t}', energy)
+            t += 1
+
+            print(energy) ## test
 
     def markov_chain(self):
         n, m = self.size
@@ -151,6 +181,7 @@ class SpinState(list):
     def __new__(cls, lattice, *args, **kw):
         obj = super().__new__(SpinState)
         obj.size = lattice.size
+        obj.D = lattice.D
         return obj
 
     def __setitem__(self,*args):
@@ -159,6 +190,9 @@ class SpinState(list):
 
     def fresh(self):
         # 在spin或者lattice变化时call 之
+        self.D_c = self.lattice.D_c
+        self.scan_time = self.lattice.scan_time
+
         self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
         self.flag_up_to_down = False
         self.flag_down_to_up = False
@@ -167,15 +201,11 @@ class SpinState(list):
         self.w_s = None
 
     def __init__(self, lattice, spin_state=None):
-        if spin_state:
-            super().__init__([[spin_state[i][j] for j in range(self.size[1])] for i in range(self.size[0])])
+        if spin_state is not None:
+            super().__init__([[int(spin_state[i][j]) for j in range(self.size[1])] for i in range(self.size[0])])
         else:
             super().__init__([[(i+j) % 2 for j in range(self.size[1])] for i in range(self.size[0])])  # !!
         self.lattice = lattice
-        self.D = lattice.D
-        self.D_c = lattice.D_c
-        self.scan_time = lattice.scan_time
-        # these attr above is read only in SpinState class
         self.fresh()
 
     def cal_w_s(self):
