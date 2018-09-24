@@ -77,32 +77,30 @@ class SquareLattice(list):
             legs = legs.replace("r", "")
         return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
 
-    def __new__(self, n, m, D, *args):
+    def __new__(self, n, m, D, *args, **kw):
         obj = super().__new__(SquareLattice)
         obj.size = n, m
         obj.D = D
         return obj
 
-    def __init__(self, n, m, D, D_c, scan_time=2):
+    def __init__(self, n, m, D, D_c, scan_time=2, step_size=0, markov_chain_length=1000, grad_step=10):
         super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
-        self.D_c = D
+        self.D_c = D_c
         self.scan_time = scan_time
         self.spin = SpinState(self, spin_state=None)
-        self.markov_chain_length = 1000
-        self.step = 0
+        self.markov_chain_length = markov_chain_length
+        self.step_size = step_size
+        self.grad_step = grad_step
 
     def grad(self):
         n, m = self.size
-        ene = []
-        for t in range(10):
+        for t in range(self.grad_step):
             energy, grad = self.markov_chain()
             for i in range(n):
                 for j in range(m):
-                    self[i][j] -= self.step*grad[i][j]
+                    self[i][j] -= self.step_size*grad[i][j]
             self.spin.fresh()
             print(energy)
-            ene.append(energy)
-        print(np.std(ene)/np.mean(ene))
 
     def markov_chain(self):
         n, m = self.size
@@ -309,7 +307,7 @@ class SpinState(list):
                         .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False) * 2 / self.cal_w_s()  # 哈密顿量
 
         E_s = E_s_diag + E_s_non_diag
-        return -0.25*E_s, Delta_s
+        return 0.25*E_s, Delta_s
 
     def __auxiliary(self):
         self.__auxiliary_up_to_down()
