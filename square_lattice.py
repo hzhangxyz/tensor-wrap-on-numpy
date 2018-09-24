@@ -2,6 +2,7 @@ import numpy_wrap as np
 import time
 import os
 
+
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
     res = [initial[i] for i in range(length)]
@@ -87,7 +88,7 @@ class SquareLattice(list):
 
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix=None):
         if load_from == None or not os.path.exists(load_from):
-            super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
+            super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)])  # random init
             self.D_c = D_c
             self.scan_time = scan_time
             self.spin = SpinState(self, spin_state=None)
@@ -95,7 +96,7 @@ class SquareLattice(list):
             self.load_from = None
         else:
             prepare = np.load(load_from)
-            super().__init__([[np.tensor(prepare[f'node_{i}_{j}'],legs=prepare[f'legs_{i}_{j}']) for j in range(m)] for i in range(n)]) # random init
+            super().__init__([[np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']) for j in range(m)] for i in range(n)])  # random init
             self.D_c = D_c
             self.scan_time = scan_time
             self.spin = SpinState(self, spin_state=prepare['spin'])
@@ -103,12 +104,12 @@ class SquareLattice(list):
             self.load_from = load_from
 
         if save_prefix is None:
-            self.save_prefix = time.strftime("run/%Y%m%d%H%M%S",time.gmtime())
+            self.save_prefix = time.strftime("run/%Y%m%d%H%M%S", time.gmtime())
         else:
             self.save_prefix = save_prefix
         os.makedirs(self.save_prefix, exist_ok=True)
         if load_from is not None:
-            os.symlink(os.path.realpath(load_from),f'{self.save_prefix}/load_from')
+            os.symlink(os.path.realpath(load_from), f'{self.save_prefix}/load_from')
         split_name = os.path.split(self.save_prefix)
         if os.path.exists(f'{split_name[0]}/last'):
             os.remove(f'{split_name[0]}/last')
@@ -128,13 +129,13 @@ class SquareLattice(list):
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
         if os.path.exists(f'{self.save_prefix}/last.npz'):
-            os.rename(f'{self.save_prefix}/last.npz',f'{self.save_prefix}/bak.npz')
+            os.rename(f'{self.save_prefix}/last.npz', f'{self.save_prefix}/bak.npz')
         os.symlink(f'{prepare["t"]}.npz', f'{self.save_prefix}/last.npz')
 
     def grad_descent(self):
         n, m = self.size
         t = 0
-        file = open(f'{self.save_prefix}/log','w')
+        file = open(f'{self.save_prefix}/log', 'w')
         while True:
             energy, grad = self.markov_chain()
             for i in range(n):
@@ -144,15 +145,14 @@ class SquareLattice(list):
             self.save(energy=energy, t=t)
             file.write(f'{t} {energy}\n')
             file.flush()
-            print(t,energy)
+            print(t, energy)
             t += 1
-
 
     def markov_chain(self):
         n, m = self.size
         sum_E_s = np.tensor(0.)
-        sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape),self[i][j].legs) for j in range(m)]for i in range(n)]
-        Prod = [[np.tensor(np.zeros(self[i][j].shape),self[i][j].legs) for j in range(m)]for i in range(n)]
+        sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
+        Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         for i in range(self.markov_chain_length):
             E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
             sum_E_s += E_s
@@ -165,6 +165,7 @@ class SquareLattice(list):
         Energy = sum_E_s/(self.markov_chain_length*n*m)
         return Energy, Grad
 
+
 class SpinState(list):
 
     def __gen_markov_chain_pool(self):
@@ -172,12 +173,12 @@ class SpinState(list):
         pool = []
         for i in range(n):
             for j in range(m):
-                if j!= m-1:
+                if j != m-1:
                     if self[i][j] != self[i][j+1]:
-                        pool.append([i,j,i,j+1])
-                if i!= n-1:
+                        pool.append([i, j, i, j+1])
+                if i != n-1:
                     if self[i][j] != self[i+1][j]:
-                        pool.append([i,j,i+1,j])
+                        pool.append([i, j, i+1, j])
         return pool
 
     def markov_chain_hop(self):
@@ -188,7 +189,7 @@ class SpinState(list):
         alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
         alter_pool = alter.__gen_markov_chain_pool()
         possibility = (alter.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
-        #print("possi",possibility)
+        # print("possi",possibility)
         if possibility > np.random.rand():
             return alter
         else:
@@ -200,7 +201,7 @@ class SpinState(list):
         obj.D = lattice.D
         return obj
 
-    def __setitem__(self,*args):
+    def __setitem__(self, *args):
         super().__setitem__(*args)
         self.fresh()
 

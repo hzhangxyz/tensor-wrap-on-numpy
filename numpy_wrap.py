@@ -64,7 +64,6 @@ class tensor(ndarray):
         else:
             return super().__mul__(args)
 
-
     def set_legs(self, legs):
         self.legs = [str(legs[i]) for i in range(self.ndim)]
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
