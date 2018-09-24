@@ -197,89 +197,31 @@ class SpinState(list):
         # 横向j j+1
         for i in range(n):
             l = [None for j in range(m)]
+            l[-1] = np.tensor(1.)
             r = [None for j in range(m)]
-            if i == 0:
-                l[0] = self.lat[i][0]\
-                    .tensor_contract(self.DownToUp[i+1][0], ['d'], ['u'], {'r': 'r2'}, {'r': 'r3'})
-                for j in range(1, m-1):
-                    l[j] = l[j-1]\
-                        .tensor_contract(self.lat[i][j], ['r2'], ['l'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.DownToUp[i+1][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'})
-                r[m-1] = self.lat[i][m-1]\
-                    .tensor_contract(self.DownToUp[i+1][m-1], ['d'], ['u'], {'l': 'l2'}, {'l': 'l3'})
-                for j in range(m-2, 0, -1):
-                    r[j] = r[j+1]\
-                        .tensor_contract(self.lat[i][j], ['l2'], ['r'], {}, {'l': 'l2'})\
-                        .tensor_contract(self.DownToUp[i+1][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'})
-            elif i == n-1:
-                l[0] = self.UpToDown[i-1][0]\
-                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})
-                for j in range(1, m-1):
-                    l[j] = l[j-1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                        .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})
-                r[m-1] = self.UpToDown[i-1][m-1]\
-                    .tensor_contract(self.lat[i][m-1], ['d'], ['u'], {'l': 'l1'}, {'l': 'l2'})
-                for j in range(m-2, 0, -1):
-                    r[j] = r[j+1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
-                        .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'})
-            else:
-                l[0] = self.UpToDown[i-1][0]\
-                    .tensor_contract(self.lat[i][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})\
-                    .tensor_contract(self.DownToUp[i+1][0], ['d'], ['u'], {}, {'r': 'r3'})
-                for j in range(1, m-1):
-                    l[j] = l[j-1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                        .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})\
-                        .tensor_contract(self.DownToUp[i+1][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'})
-                r[m-1] = self.UpToDown[i-1][m-1]\
-                    .tensor_contract(self.lat[i][m-1], ['d'], ['u'], {'l': 'l1'}, {'l': 'l2'})\
-                    .tensor_contract(self.DownToUp[i+1][m-1], ['d'], ['u'], {}, {'l': 'l3'})
-                for j in range(m-2, 0, -1):
-                    r[j] = r[j+1]\
-                        .tensor_contract(self.UpToDown[i-1][j], ['l1'], ['r'], {}, {'l': 'l1'})\
-                        .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'})\
-                        .tensor_contract(self.DownToUp[i+1][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'})
+            r[0] = np.tensor(1.)
+
+            for j in range(0, m-1):
+                l[j] = l[(j-1)%m]\
+                    .tensor_contract(self.UpToDown[(i-1)%n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                    .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                    .tensor_contract(self.DownToUp[(i+1)%n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+            for j in range(m-1, 0, -1):
+                r[j] = r[(j+1)%m]\
+                    .tensor_contract(self.UpToDown[(i-1)%n][j], ['l1'], ['r'], {}, {'l': 'l1'}, restrict_mode=False)\
+                    .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'}, restrict_mode=False)\
+                    .tensor_contract(self.DownToUp[(i+1)%n][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'}, restrict_mode=False)
             # 计算 delta
             for j in range(m):
-                if i == 0:
-                    if j == 0:
-                        Delta_s[i][j] = self.DownToUp[1][0].tensor_contract(r[1], ['r'], ['l3'], {'u': 'd'}, {'l2': 'r'})
-                    elif j == m-1:
-                        Delta_s[i][j] = self.DownToUp[1][m-1].tensor_contract(l[m-2], ['l'], ['r3'], {'u': 'd'}, {'r2': 'l'})
-                    else:
-                        Delta_s[i][j] = l[j-1]\
-                            .tensor_contract(self.DownToUp[1][j], ['r3'], ['l'], {'r2': 'l'}, {'u': 'd', 'r': 'r3'})\
-                            .tensor_contract(r[j+1], ['r3'], ['l3'], {}, {'l2': 'r'})
-                elif i == n-1:
-                    if j == 0:
-                        Delta_s[i][j] = self.UpToDown[n-2][0].tensor_contract(r[1], ['r'], ['l1'], {'d': 'u'}, {'l2': 'r'})
-                    elif j == m-1:
-                        Delta_s[i][j] = self.UpToDown[n-2][m-1].tensor_contract(l[m-2], ['l'], ['r1'], {'d': 'u'}, {'r2': 'l'})
-                    else:
-                        Delta_s[i][j] = l[j-1]\
-                            .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {'r2': 'l'}, {'d': 'u', 'r': 'r1'})\
-                            .tensor_contract(r[j+1], ['r1'], ['l1'], {}, {'l2': 'r'})
-                else:
-                    if j == 0:
-                        Delta_s[i][j] = self.UpToDown[i-1][0]\
-                            .tensor_contract(r[1], ['r'], ['l1'], {'d': 'u'}, {'l2': 'r'})\
-                            .tensor_contract(self.DownToUp[i+1][0], ['l3'], ['r'], {}, {'u': 'd'})
-                    elif j == m-1:
-                        Delta_s[i][j] = self.UpToDown[i-1][m-1]\
-                            .tensor_contract(l[m-2], ['l'], ['r1'], {'d': 'u'}, {'r2': 'l'})\
-                            .tensor_contract(self.DownToUp[i+1][m-1], ['r3'], ['l'], {}, {'u': 'd'})
-                    else:
-                        Delta_s[i][j] = np.tensor_contract(
-                            np.tensor_contract(l[j-1], self.UpToDown[i-1][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}),
-                            np.tensor_contract(r[j+1], self.DownToUp[i+1][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}),
-                            ['r1', 'r3'], ['l1', 'l3'])
+                Delta_s[i][j] = np.tensor_contract(
+                    np.tensor_contract(l[(j-1)%m], self.UpToDown[(i-1)%n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
+                    np.tensor_contract(r[(j+1)%m], self.DownToUp[(i+1)%n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
+                    ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False)
                 Delta_s[i][j] /= self.cal_w_s()
             # 计算Es
             for j in range(m-1):
-                if self.lat[i][j] != self.lat[i][j+1]:
-                    tmp = None
+                if self[i][j] != self[i][j+1]:
+                    tmp = 0
                     if i == 0:
                         pass
                     elif i == n-1:
@@ -316,6 +258,7 @@ class SpinState(list):
                 else:
                     initial[j] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['d', 'l', 'r'])
             self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
+        self.UpToDown[n-1] = [np.tensor(1.) for j in range(m)]
 
     def auxiliary_down_to_up(self):
         if self.flag_down_to_up:
@@ -334,6 +277,7 @@ class SpinState(list):
                 else:
                     initial[j] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['u', 'l', 'r'])
             self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
+        self.DownToUp[0] = [np.tensor(1.) for j in range(m)]
 
     def auxiliary_left_to_right(self):
         if self.flag_left_to_right:
@@ -351,9 +295,9 @@ class SpinState(list):
                     initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['r', 'u'])
                 else:
                     initial[i] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['r', 'd', 'u'])
-            self.LeftToRight[j] = auxiliary_generate(m, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
+            self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
                                                      L='u', R='d', U='l', D='r', scan_time=self.scan_time)
-        self.LeftToRight[m-1] = [None for i in range(n)]
+        self.LeftToRight[m-1] = [np.tensor(1.) for i in range(n)]
         tmp = self.LeftToRight
         self.LeftToRight = [[tmp[j][i] for j in range(m)] for i in range(n)]
 
@@ -373,8 +317,9 @@ class SpinState(list):
                     initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['l', 'u'])
                 else:
                     initial[i] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['l', 'd', 'u'])
-            self.RightToLeft[j] = auxiliary_generate(m, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
+            self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
                                                      L='u', R='d', U='r', D='l', scan_time=self.scan_time)
-        self.RightToLeft[0] = [None for i in range(n)]
+        self.RightToLeft[0] = [np.tensor(1.) for i in range(n)]
         tmp = self.RightToLeft
         self.RightToLeft = [[tmp[j][i] for j in range(m)] for i in range(n)]
+
