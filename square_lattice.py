@@ -108,8 +108,8 @@ class SquareLattice(list):
         else:
             self.save_prefix = save_prefix
         os.makedirs(self.save_prefix, exist_ok=True)
-        if load_from is not None:
-            os.symlink(os.path.realpath(load_from), f'{self.save_prefix}/load_from')
+        if self.load_from is not None:
+            os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
         split_name = os.path.split(self.save_prefix)
         if os.path.exists(f'{split_name[0]}/last'):
             os.remove(f'{split_name[0]}/last')
