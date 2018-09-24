@@ -13,6 +13,15 @@ class tensor(ndarray):
     def __repr__(self):
         return f'{super().__repr__()}\nlegs({self.legs})'
 
+    def __reduce__(self):
+        pickled_state = super().__reduce__()
+        new_state = pickled_state[2] + (self.legs,)
+        return (pickled_state[0], pickled_state[1], new_state)
+
+    def __setstate__(self, state):
+        self.legs = state[-1]
+        super().__setstate__(state[0:-1])
+
     def __array_finalize__(self, obj):
         if obj is None:
             return

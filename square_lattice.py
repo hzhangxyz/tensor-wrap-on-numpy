@@ -1,7 +1,12 @@
-import numpy_wrap as np
 import time
 import os
+import numpy_wrap as np
+from mpi4py import MPI
 
+mpi_comm = MPI.COMM_WORLD
+mpi_rank = mpi_comm.Get_rank()
+mpi_size = mpi_comm.Get_size()
+print("mpi info:", mpi_rank, "/", mpi_size)
 
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
@@ -88,7 +93,11 @@ class SquareLattice(list):
 
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
         if load_from == None or not os.path.exists(load_from):
-            super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)])  # random init
+            if mpi_rank == 0:
+                tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
+            else:
+                tmp = None
+            super().__init__(mpi_comm.bcast(tmp, root=0))  # random init
             self.D_c = D_c
             self.scan_time = scan_time
             self.spin = SpinState(self, spin_state=None)
@@ -99,28 +108,31 @@ class SquareLattice(list):
             super().__init__([[np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']) for j in range(m)] for i in range(n)])  # random init
             self.D_c = D_c
             self.scan_time = scan_time
-            self.spin = SpinState(self, spin_state=prepare['spin'])
+            if f'spin' in prepare and len(prepare['spin']) > mpi_rank:
+                self.spin = SpinState(self, spin_state=prepare['spin'][mpi_rank])
+            else:
+                self.spin = SpinState(self, spin_state=None)
 
             self.load_from = load_from
 
-        self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
-        os.makedirs(self.save_prefix, exist_ok=True)
-        if self.load_from is not None:
-            os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
-        file = open(f'{self.save_prefix}/parameter','w')
-        file.write(f'n={n}\nm={m}\nD={D}\nD_c={D_c}\nscan_time={scan_time}\nstep_size={step_size}\nmarkov_chain_length={markov_chain_length}\n')
-        file.close()
-        split_name = os.path.split(self.save_prefix)
-        if os.path.exists(f'{split_name[0]}/last'):
-            os.remove(f'{split_name[0]}/last')
-        os.symlink(split_name[1], f'{split_name[0]}/last')
+        if mpi_rank == 0:
+            self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
+            os.makedirs(self.save_prefix, exist_ok=True)
+            if self.load_from is not None:
+                os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
+            file = open(f'{self.save_prefix}/parameter','w')
+            file.write(f'n={n}\nm={m}\nD={D}\nD_c={D_c}\nscan_time={scan_time}\nstep_size={step_size}\nmarkov_chain_length={markov_chain_length}\n')
+            file.close()
+            split_name = os.path.split(self.save_prefix)
+            if os.path.exists(f'{split_name[0]}/last'):
+                os.remove(f'{split_name[0]}/last')
+            os.symlink(split_name[1], f'{split_name[0]}/last')
 
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
     def save(self, **prepare):
         n, m = self.size
-        prepare['spin'] = np.array(self.spin, dtype=int)
         for i in range(n):
             for j in range(m):
                 prepare[f'node_{i}_{j}'] = self[i][j]
@@ -135,35 +147,53 @@ class SquareLattice(list):
     def grad_descent(self):
         n, m = self.size
         t = 0
-        file = open(f'{self.save_prefix}/log', 'w')
+        if mpi_rank == 0:
+            file = open(f'{self.save_prefix}/log', 'w')
         while True:
             energy, grad = self.markov_chain()
+            gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
+            if mpi_rank == 0: # mpi
+                spin = np.array(gather_spin, dtype=int)
+                for i in range(n):
+                    for j in range(m):
+                        self[i][j] -= self.step_size*grad[i][j]
+                self.save(energy=energy, t=t, spin=spin)
+                file.write(f'{t} {energy}\n')
+                file.flush()
+                print(t, energy)
             for i in range(n):
                 for j in range(m):
-                    self[i][j] -= self.step_size*grad[i][j]
+                    tmp = self[i][j]
+                    self[i][j] = mpi_comm.bcast(self[i][j], root=0)
             self.spin.fresh()
-            self.save(energy=energy, t=t)
-            file.write(f'{t} {energy}\n')
-            file.flush()
-            print(t, energy)
             t += 1
 
     def markov_chain(self):
         n, m = self.size
         sum_E_s = np.tensor(0.)
-        sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
-        Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
+        if mpi_rank == 0:
+            sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
+            Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         for i in range(self.markov_chain_length):
             E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
-            sum_E_s += E_s
+            tmp1 = mpi_comm.reduce(E_s, root=0)
+            if mpi_rank == 0:
+                sum_E_s += tmp1
             for i in range(n):
                 for j in range(m):
-                    sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
-                    Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
+                    tmp2 = mpi_comm.reduce(Delta_s[i][j], root=0)
+                    tmp3 = mpi_comm.reduce(E_s * Delta_s[i][j], root=0)
+                    if mpi_rank == 0:
+                        sum_Delta_s[i][j][self.spin[i][j]] += tmp2
+                        Prod[i][j][self.spin[i][j]] += tmp3
             self.spin = self.spin.markov_chain_hop()
-        Grad = [[2.*Prod[i][j]/self.markov_chain_length - 2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length)**2 for j in range(m)] for i in range(n)]
-        Energy = sum_E_s/(self.markov_chain_length*n*m)
-        return Energy, Grad
+        if mpi_rank == 0:
+            Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -\
+                    2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
+            Energy = sum_E_s/(self.markov_chain_length*mpi_size*n*m)
+            return Energy, Grad
+        else:
+            return None, None
 
 
 class SpinState(list):

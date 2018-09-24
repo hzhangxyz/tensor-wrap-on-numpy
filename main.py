@@ -19,8 +19,6 @@ args = parser.parse_args()
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
 
-np.random.seed(0)
-
 lattice = sl.SquareLattice(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov_chain_length, args.load_from, args.save_prefix)
 
 lattice.grad_descent()
