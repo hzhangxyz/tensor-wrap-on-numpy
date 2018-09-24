@@ -8,6 +8,7 @@ mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
 print("mpi info:", mpi_rank, "/", mpi_size)
 
+
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
     res = [initial[i] for i in range(length)]
@@ -120,7 +121,7 @@ class SquareLattice(list):
             os.makedirs(self.save_prefix, exist_ok=True)
             if self.load_from is not None:
                 os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
-            file = open(f'{self.save_prefix}/parameter','w')
+            file = open(f'{self.save_prefix}/parameter', 'w')
             file.write(f'n={n}\nm={m}\nD={D}\nD_c={D_c}\nscan_time={scan_time}\nstep_size={step_size}\nmarkov_chain_length={markov_chain_length}\n')
             file.close()
             split_name = os.path.split(self.save_prefix)
@@ -152,7 +153,7 @@ class SquareLattice(list):
         while True:
             energy, grad = self.markov_chain()
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
-            if mpi_rank == 0: # mpi
+            if mpi_rank == 0:  # mpi
                 spin = np.array(gather_spin, dtype=int)
                 for i in range(n):
                     for j in range(m):
@@ -188,8 +189,8 @@ class SquareLattice(list):
                         Prod[i][j][self.spin[i][j]] += tmp3
             self.spin = self.spin.markov_chain_hop()
         if mpi_rank == 0:
-            Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -\
-                    2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
+            Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -
+                     2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
             Energy = sum_E_s/(self.markov_chain_length*mpi_size*n*m)
             return Energy, Grad
         else:
