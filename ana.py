@@ -19,6 +19,6 @@ while True:
 data = np.concatenate(data[::-1])[:,1]
 
 plt.plot(data)
-plt.axis([0, len(data), -0.53, -0.4])
+plt.axis([0, len(data), -0.6, 0.5])
 #plt.axis([900, len(data), -0.522, -0.521])
 plt.show()
