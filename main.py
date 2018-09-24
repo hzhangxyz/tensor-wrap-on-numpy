@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import square_lattice as sl
 import numpy_wrap as np
 import argparse
