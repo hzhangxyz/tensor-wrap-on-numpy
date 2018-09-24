@@ -86,7 +86,7 @@ class SquareLattice(list):
 
         return obj
 
-    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix=None):
+    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
         if load_from == None or not os.path.exists(load_from):
             super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)])  # random init
             self.D_c = D_c
@@ -103,10 +103,7 @@ class SquareLattice(list):
 
             self.load_from = load_from
 
-        if save_prefix is None:
-            self.save_prefix = time.strftime("run/%Y%m%d%H%M%S", time.gmtime())
-        else:
-            self.save_prefix = save_prefix
+        self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
         os.makedirs(self.save_prefix, exist_ok=True)
         if self.load_from is not None:
             os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')

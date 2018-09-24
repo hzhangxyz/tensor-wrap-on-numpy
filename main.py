@@ -17,7 +17,7 @@ parser.add_argument('-c', '--continue', dest='continued', default=False, action=
 args = parser.parse_args()
 
 if args.continued and not args.load_from:
-    args.load_from = "./run/last/last.npz"
+    args.load_from = f"{args.save_prefix}/last/last.npz"
 
 np.random.seed(0)
 
