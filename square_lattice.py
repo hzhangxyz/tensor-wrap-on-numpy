@@ -88,7 +88,18 @@ class SquareLattice(list):
         self.D_c = D
         self.scan_time = scan_time
         self.spin = SpinState(self, spin_state=None)
-        self.markov_chain_length = 10
+        self.markov_chain_length = 100
+        self.step = 0.01
+
+    def grad(self):
+        n, m = self.size
+        for t in range(10):
+            energy, grad = self.markov_chain()
+            for i in range(n):
+                for j in range(m):
+                    self[i][j] -= self.step*grad[i][j]
+            self.spin.fresh()
+            print(energy)
 
     def markov_chain(self):
         n, m = self.size
@@ -103,13 +114,14 @@ class SquareLattice(list):
                     sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
                     Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
             self.spin = self.spin.markov_chain_hop()
-        Grad = [[2.*Prod[i][j]/markove_chain_length - 2.*sum_E_s*sum_Delta_s[i][j]/(markov_chain_length)**2 for j in range(m)] for i in range(n)]
-        Energy = sum_E_s/(n*m)
+        Grad = [[2.*Prod[i][j]/self.markov_chain_length - 2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length)**2 for j in range(m)] for i in range(n)]
+        Energy = sum_E_s/(self.markov_chain_length*n*m)
         return Energy, Grad
 
 class SpinState(list):
 
     def __gen_markov_chain_pool(self):
+        n, m = self.size
         pool = []
         for i in range(n):
             for j in range(m):
@@ -128,8 +140,8 @@ class SpinState(list):
         alter[choosed[0]][choosed[1]] = 1 - alter[choosed[0]][choosed[1]]
         alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
         alter_pool = alter.__gen_markov_chain_pool()
-        possibility = (alter_pool.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
-        if possiblity > np.random.rand():
+        possibility = (alter.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
+        if possibility > np.random.rand():
             return alter
         else:
             return self
@@ -141,6 +153,10 @@ class SpinState(list):
 
     def __setitem__(self,*args):
         super().__setitem__(*args)
+        self.fresh()
+
+    def fresh(self):
+        # 在spin或者lattice变化时call 之
         self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
         self.flag_up_to_down = False
         self.flag_down_to_up = False
@@ -158,12 +174,7 @@ class SpinState(list):
         self.D_c = lattice.D_c
         self.scan_time = lattice.scan_time
         # these attr above is read only in SpinState class
-        self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
-        self.flag_up_to_down = False
-        self.flag_down_to_up = False
-        self.flag_left_to_right = False
-        self.flag_right_to_left = False
-        self.w_s = None
+        self.fresh()
 
     def cal_w_s(self):
         if self.w_s is not None:
@@ -294,7 +305,7 @@ class SpinState(list):
                         .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False) * 2 / self.cal_w_s()  # 哈密顿量
 
         E_s = E_s_diag + E_s_non_diag
-        return E_s, Delta_s
+        return -0.25*E_s, Delta_s
 
     def __auxiliary(self):
         self.__auxiliary_up_to_down()
