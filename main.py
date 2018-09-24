@@ -12,7 +12,11 @@ parser.add_argument('-s', '--step-size', dest='step_size', required=True, type=f
 parser.add_argument('-m', '--markov-chain-length', dest='markov_chain_length', required=True, type=int)
 parser.add_argument('-f', '--load-from', dest='load_from')
 parser.add_argument('-p', '--save-prefix', dest='save_prefix')
+parser.add_argument('-c', '--continue', dest='continued', default=False, action="store_true")
 args = parser.parse_args()
+
+if args.continued and not args.load_from:
+    args.load_from = "./run/last/last.npz"
 
 np.random.seed(0)
 
