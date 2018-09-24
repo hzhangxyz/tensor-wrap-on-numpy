@@ -102,15 +102,15 @@ class SquareLattice(list):
             self.save_prefix = time.strftime("run/%Y%m%d%H%M%S",time.gmtime())
         else:
             self.save_prefix = save_prefix
+        self.load_from=load_from
 
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
-    def save(self, name, energy=None):
+    def save(self, name, **prepare):
         n, m = self.size
-        prepare = {'spin': np.array(self.spin, dtype=int)}
-        if energy is not None:
-            prepare["energy"] = energy
+        prepare['spin'] = np.array(self.spin, dtype=int)
+        prepare['load_from'] = self.load_from
         for i in range(n):
             for j in range(m):
                 prepare[f'node_{i}_{j}'] = self[i][j]
@@ -133,7 +133,7 @@ class SquareLattice(list):
                 for j in range(m):
                     self[i][j] -= self.step_size*grad[i][j]
             self.spin.fresh()
-            self.save(f'{self.save_prefix}/{t}.npz', energy)
+            self.save(f'{self.save_prefix}/{t}.npz', energy=energy, t=t)
             print(t,energy)
             t += 1
 
