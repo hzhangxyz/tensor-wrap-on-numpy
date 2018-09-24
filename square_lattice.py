@@ -86,7 +86,7 @@ class SquareLattice(list):
         return obj
 
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix=None):
-        if load_from == None || os.path.exists(load_from):
+        if load_from == None or not os.path.exists(load_from):
             super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
             self.D_c = D_c
             self.scan_time = scan_time
