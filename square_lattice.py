@@ -88,11 +88,12 @@ class SquareLattice(list):
         self.D_c = D
         self.scan_time = scan_time
         self.spin = SpinState(self, spin_state=None)
-        self.markov_chain_length = 100
-        self.step = 0.01
+        self.markov_chain_length = 1000
+        self.step = 0
 
     def grad(self):
         n, m = self.size
+        ene = []
         for t in range(10):
             energy, grad = self.markov_chain()
             for i in range(n):
@@ -100,6 +101,8 @@ class SquareLattice(list):
                     self[i][j] -= self.step*grad[i][j]
             self.spin.fresh()
             print(energy)
+            ene.append(energy)
+        print(np.std(ene)/np.mean(ene))
 
     def markov_chain(self):
         n, m = self.size
@@ -141,6 +144,7 @@ class SpinState(list):
         alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
         alter_pool = alter.__gen_markov_chain_pool()
         possibility = (alter.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
+        #print("possi",possibility)
         if possibility > np.random.rand():
             return alter
         else:
