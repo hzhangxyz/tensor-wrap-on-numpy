@@ -86,6 +86,8 @@ class SquareLattice(list):
         return obj
 
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix=None):
+        if not os.path.exists(load_from):
+            load_from = None
         if load_from == None:
             super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
             self.D_c = D_c
@@ -102,38 +104,44 @@ class SquareLattice(list):
             self.save_prefix = time.strftime("run/%Y%m%d%H%M%S",time.gmtime())
         else:
             self.save_prefix = save_prefix
-        self.load_from=load_from
+        os.makedirs(self.save_prefix, exist_ok=True)
+        if load_from is not None:
+            os.symlink(os.path.realpath(load_from),f'{self.save_prefix}/load_from')
+        split_name = os.path.split(self.save_prefix)
+        if os.path.exists(f'{split_name[0]}/last'):
+            os.remove(f'{split_name[0]}/last')
+        os.symlink(split_name[1], f'{split_name[0]}/last')
 
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
-    def save(self, name, **prepare):
+    def save(self, **prepare):
         n, m = self.size
         prepare['spin'] = np.array(self.spin, dtype=int)
-        prepare['load_from'] = self.load_from
         for i in range(n):
             for j in range(m):
                 prepare[f'node_{i}_{j}'] = self[i][j]
                 prepare[f'legs_{i}_{j}'] = self[i][j].legs
-        split_name = os.path.split(name)
-        os.makedirs(split_name[0], exist_ok=True)
-        np.savez_compressed(name, **prepare)
-        if os.path.exists(os.path.join(split_name[0],'bak.npz')):
-            os.remove(os.path.join(split_name[0],'bak.npz'))
-        if os.path.exists(os.path.join(split_name[0],'last.npz')):
-            os.rename(os.path.join(split_name[0],'last.npz'),os.path.join(split_name[0],'bak.npz'))
-        os.symlink(split_name[1], os.path.join(split_name[0],'last.npz'))
+        np.savez_compressed(f'{self.save_prefix}/{prepare["t"]}.npz', **prepare)
+        if os.path.exists(f'{self.save_prefix}/bak.npz'):
+            os.remove(f'{self.save_prefix}/bak.npz')
+        if os.path.exists(f'{self.save_prefix}/last.npz'):
+            os.rename(f'{self.save_prefix}/last.npz',f'{self.save_prefix}/bak.npz')
+        os.symlink(f'{prepare["t"]}.npz', f'{self.save_prefix}/last.npz')
 
     def grad_descent(self):
         n, m = self.size
         t = 0
+        file = open(f'{self.save_prefix}/log','w')
         while True:
             energy, grad = self.markov_chain()
             for i in range(n):
                 for j in range(m):
                     self[i][j] -= self.step_size*grad[i][j]
             self.spin.fresh()
-            self.save(f'{self.save_prefix}/{t}.npz', energy=energy, t=t)
+            self.save(energy=energy, t=t)
+            file.write(f'{t} {energy}\n')
+            file.flush()
             print(t,energy)
             t += 1
 
