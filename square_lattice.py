@@ -171,8 +171,8 @@ class SquareLattice(list):
 
     def markov_chain(self):
         n, m = self.size
-        sum_E_s = np.tensor(0.)
         if mpi_rank == 0:
+            sum_E_s = np.tensor(0.)    
             sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
             Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         for i in range(self.markov_chain_length):
