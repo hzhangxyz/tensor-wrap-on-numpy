@@ -94,29 +94,63 @@ class SquareLattice(list):
         n, m = self.size
         sum_E_s = np.tensor(0.)
         sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape),self[i][j].legs) for j in range(m)]for i in range(n)]
+        Prod = [[np.tensor(np.zeros(self[i][j].shape),self[i][j].legs) for j in range(m)]for i in range(n)]
         for i in range(self.markov_chain_length):
             E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
             sum_E_s += E_s
-            Delta_s += Delta_s
-            Prod += E_s * Delta_s
-            new_spin = self.spin.hop()
-            if check(new_spin):
-                self.spin = new_spin
-        Grad = 2.*Prod/markove_chain_length - 2.*sum_E_s*sum_Delta_s/(markov_chain_length)**2
-        Energy = sum_E_s
+            for i in range(n):
+                for j in range(m):
+                    sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
+                    Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
+            self.spin = self.spin.markov_chain_hop()
+        Grad = [[2.*Prod[i][j]/markove_chain_length - 2.*sum_E_s*sum_Delta_s[i][j]/(markov_chain_length)**2 for j in range(m)] for i in range(n)]
+        Energy = sum_E_s/(n*m)
         return Energy, Grad
 
-
 class SpinState(list):
+
+    def __gen_markov_chain_pool(self):
+        pool = []
+        for i in range(n):
+            for j in range(m):
+                if j!= m-1:
+                    if self[i][j] != self[i][j+1]:
+                        pool.append([i,j,i,j+1])
+                if i!= n-1:
+                    if self[i][j] != self[i+1][j]:
+                        pool.append([i,j,i+1,j])
+        return pool
+
+    def markov_chain_hop(self):
+        pool = self.__gen_markov_chain_pool()
+        choosed = pool[np.random.randint(len(pool))]
+        alter = type(self)(self.lattice, self)
+        alter[choosed[0]][choosed[1]] = 1 - alter[choosed[0]][choosed[1]]
+        alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
+        alter_pool = alter.__gen_markov_chain_pool()
+        possibility = (alter_pool.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
+        if possiblity > np.random.rand():
+            return alter
+        else:
+            return self
 
     def __new__(cls, lattice, *args, **kw):
         obj = super().__new__(SpinState)
         obj.size = lattice.size
         return obj
 
+    def __setitem__(self,*args):
+        super().__setitem__(*args)
+        self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
+        self.flag_up_to_down = False
+        self.flag_down_to_up = False
+        self.flag_left_to_right = False
+        self.flag_right_to_left = False
+        self.w_s = None
+
     def __init__(self, lattice, spin_state=None):
         if spin_state:
-            super().__init__(spin_state)
+            super().__init__([[spin_state[i][j] for j in range(self.size[1])] for i in range(self.size[0])])
         else:
             super().__init__([[(i+j) % 2 for j in range(self.size[1])] for i in range(self.size[0])])  # !!
         self.lattice = lattice
@@ -136,18 +170,17 @@ class SpinState(list):
             return self.w_s
         n, m = self.size
 
-        self.auxiliary_up_to_down()
-        self.w_s = np.tensor_contract(self.UpToDown[n-2][0], self.lat[n-1][0], ['d'], ['u'], {'r': 'r1'}, {'r': 'r2'})
-        for j in range(1, m):
+        self.__auxiliary_up_to_down()
+        self.w_s = np.tensor(1.)
+        for j in range(0, m):
             self.w_s = self.w_s\
-                .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'})\
-                .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'})
-
+                .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
         return self.w_s
 
     def test_w_s(self):
         n, m = self.size
-        self.auxiliary()
+        self.__auxiliary()
         res = []
 
         self.w_s = np.tensor(1.)
@@ -187,7 +220,7 @@ class SpinState(list):
         第二部分:交换
         """
         n, m = self.size
-        self.auxiliary()
+        self.__auxiliary()
         E_s_diag = 0.
         for i in range(n):
             for j in range(m):
@@ -263,13 +296,13 @@ class SpinState(list):
         E_s = E_s_diag + E_s_non_diag
         return E_s, Delta_s
 
-    def auxiliary(self):
-        self.auxiliary_up_to_down()
-        self.auxiliary_down_to_up()
-        self.auxiliary_left_to_right()
-        self.auxiliary_right_to_left()
+    def __auxiliary(self):
+        self.__auxiliary_up_to_down()
+        self.__auxiliary_down_to_up()
+        self.__auxiliary_left_to_right()
+        self.__auxiliary_right_to_left()
 
-    def auxiliary_up_to_down(self):
+    def __auxiliary_up_to_down(self):
         if self.flag_up_to_down:
             return
         n, m = self.size
@@ -288,7 +321,7 @@ class SpinState(list):
             self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
         self.UpToDown[n-1] = [np.tensor(1.) for j in range(m)]
 
-    def auxiliary_down_to_up(self):
+    def __auxiliary_down_to_up(self):
         if self.flag_down_to_up:
             return
         n, m = self.size
@@ -307,7 +340,7 @@ class SpinState(list):
             self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
         self.DownToUp[0] = [np.tensor(1.) for j in range(m)]
 
-    def auxiliary_left_to_right(self):
+    def __auxiliary_left_to_right(self):
         if self.flag_left_to_right:
             return
         n, m = self.size
@@ -329,7 +362,7 @@ class SpinState(list):
         tmp = self.LeftToRight
         self.LeftToRight = [[tmp[j][i] for j in range(m)] for i in range(n)]
 
-    def auxiliary_right_to_left(self):
+    def __auxiliary_right_to_left(self):
         if self.flag_right_to_left:
             return
         n, m = self.size

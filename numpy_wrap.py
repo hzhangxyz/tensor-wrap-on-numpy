@@ -32,7 +32,28 @@ class tensor(ndarray):
         return res
 
     def __add__(self, args):
-        return super().__add__(args.tensor_transpose(self.legs))
+        if isinstance(args, type(self)):
+            return super().__add__(args.tensor_transpose(self.legs))
+        else:
+            return super().__add__(args)
+
+    def __iadd__(self, args):
+        if isinstance(args, type(self)):
+            return super().__iadd__(args.tensor_transpose(self.legs))
+        else:
+            return super().__iadd__(args)
+
+    def __sub__(self, args):
+        if isinstance(args, type(self)):
+            return super().__sub__(args.tensor_transpose(self.legs))
+        else:
+            return super().__sub__(args)
+
+    def __isub__(self, args):
+        if isinstance(args, type(self)):
+            return super().__isub__(args.tensor_transpose(self.legs))
+        else:
+            return super().__isub__(args)
 
     def set_legs(self, legs):
         self.legs = [str(legs[i]) for i in range(self.ndim)]
