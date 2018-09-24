@@ -147,28 +147,28 @@ class SpinState(list):
         self.auxiliary()
         res = []
 
-        self.w_s = np.tensor(1)
+        self.w_s = np.tensor(1.)
         for j in range(0, m):
             self.w_s = self.w_s\
                 .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
                 .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
         res.append(self.w_s)
 
-        self.w_s = np.tensor(1)
+        self.w_s = np.tensor(1.)
         for j in range(0, m):
             self.w_s = self.w_s\
                 .tensor_contract(self.DownToUp[1][j], ['r2'], ['l'], {}, {'r': 'r2'}, restrict_mode=False)\
                 .tensor_contract(self.lat[0][j], ['r1', 'u'], ['l', 'd'], {}, {'r': 'r1'}, restrict_mode=False)
         res.append(self.w_s)
 
-        self.w_s = np.tensor(1)
+        self.w_s = np.tensor(1.)
         for i in range(0, n):
             self.w_s = self.w_s\
                 .tensor_contract(self.LeftToRight[i][m-2], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
                 .tensor_contract(self.lat[i][m-1], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
         res.append(self.w_s)
 
-        self.w_s = np.tensor(1)
+        self.w_s = np.tensor(1.)
         for i in range(0, n):
             self.w_s = self.w_s\
                 .tensor_contract(self.RightToLeft[i][1], ['d2'], ['u'], {}, {'d': 'd2'}, restrict_mode=False)\
@@ -189,7 +189,7 @@ class SpinState(list):
         for i in range(n):
             for j in range(m):
                 if j != m-1:
-                    E_s_diag += 1 if self[i][j] == self[i][j+1] else -1
+                    E_s_diag += 1 if self[i][j] == self[i][j+1] else -1 # 哈密顿量
                 if i != n-1:
                     E_s_diag += 1 if self[i][j] == self[i+1][j] else -1
         E_s_non_diag = 0.  # 为相邻两个交换后的w(s)之和
@@ -202,37 +202,35 @@ class SpinState(list):
             r[0] = np.tensor(1.)
 
             for j in range(0, m-1):
-                l[j] = l[(j-1)%m]\
-                    .tensor_contract(self.UpToDown[(i-1)%n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                l[j] = l[(j-1) % m]\
+                    .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
                     .tensor_contract(self.lat[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                    .tensor_contract(self.DownToUp[(i+1)%n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                    .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
             for j in range(m-1, 0, -1):
-                r[j] = r[(j+1)%m]\
-                    .tensor_contract(self.UpToDown[(i-1)%n][j], ['l1'], ['r'], {}, {'l': 'l1'}, restrict_mode=False)\
+                r[j] = r[(j+1) % m]\
+                    .tensor_contract(self.UpToDown[(i-1) % n][j], ['l1'], ['r'], {}, {'l': 'l1'}, restrict_mode=False)\
                     .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'}, restrict_mode=False)\
-                    .tensor_contract(self.DownToUp[(i+1)%n][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'}, restrict_mode=False)
+                    .tensor_contract(self.DownToUp[(i+1) % n][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'}, restrict_mode=False)
             # 计算 delta
             for j in range(m):
                 Delta_s[i][j] = np.tensor_contract(
-                    np.tensor_contract(l[(j-1)%m], self.UpToDown[(i-1)%n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
-                    np.tensor_contract(r[(j+1)%m], self.DownToUp[(i+1)%n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
-                    ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False)
-                Delta_s[i][j] /= self.cal_w_s()
+                    np.tensor_contract(l[(j-1) % m], self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
+                    np.tensor_contract(r[(j+1) % m], self.DownToUp[(i+1) % n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
+                    ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False) / self.cal_w_s()
             # 计算Es
             for j in range(m-1):
                 if self[i][j] != self[i][j+1]:
-                    tmp = 0
-                    if i == 0:
-                        pass
-                    elif i == n-1:
-                        pass
-                    else:
-                        pass
-                    E_s_non_diag += tmp
-
+                    E_s_non_diag += l[(j-1) % m]\
+                        .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                        .tensor_contract(self.lattice[i][j][1-self[i][j]], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                        .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
+                        .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                        .tensor_contract(self.lattice[i][(j+1) % m][1-self[i][(j+1) % m]], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                        .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
+                        .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False) * 2/self.cal_w_s() # 哈密顿量
         # 纵向i i+1
 
-        E_s = E_s_diag + 2.*E_s_non_diag/self.cal_w_s()  # 2是哈密顿量里的
+        E_s = E_s_diag + E_s_non_diag
         return E_s, Delta_s
 
     def auxiliary(self):
@@ -322,4 +320,3 @@ class SpinState(list):
         self.RightToLeft[0] = [np.tensor(1.) for i in range(n)]
         tmp = self.RightToLeft
         self.RightToLeft = [[tmp[j][i] for j in range(m)] for i in range(n)]
-

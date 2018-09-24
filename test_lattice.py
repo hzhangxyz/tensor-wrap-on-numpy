@@ -14,3 +14,5 @@ for i in range(4):
     for j in range(4):
         print(lat[i][j].legs,delta_s[i][j].legs)
         print(lat[i][j].shape,delta_s[i][j].shape)
+
+print(e_s)
