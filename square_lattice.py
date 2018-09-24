@@ -85,7 +85,7 @@ class SquareLattice(list):
 
         return obj
 
-    def __init__(self, n, m, D, D_c, scan_time=2, step_size=0, markov_chain_length=1000, load_from=None, save_prefix=None):
+    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix=None):
         if load_from == None:
             super().__init__([[self.__create_node(i, j) for j in range(m)] for i in range(n)]) # random init
             self.D_c = D_c
@@ -115,8 +115,14 @@ class SquareLattice(list):
             for j in range(m):
                 prepare[f'node_{i}_{j}'] = self[i][j]
                 prepare[f'legs_{i}_{j}'] = self[i][j].legs
-        os.makedirs(os.path.split(name)[0], exist_ok=True)
+        split_name = os.path.split(name)
+        os.makedirs(split_name[0], exist_ok=True)
         np.savez_compressed(name, **prepare)
+        if os.path.exists(os.path.join(split_name[0],'bak.npz')):
+            os.remove(os.path.join(split_name[0],'bak.npz'))
+        if os.path.exists(os.path.join(split_name[0],'last.npz')):
+            os.rename(os.path.join(split_name[0],'last.npz'),os.path.join(split_name[0],'bak.npz'))
+        os.symlink(split_name[1], os.path.join(split_name[0],'last.npz'))
 
     def grad_descent(self):
         n, m = self.size
@@ -127,10 +133,10 @@ class SquareLattice(list):
                 for j in range(m):
                     self[i][j] -= self.step_size*grad[i][j]
             self.spin.fresh()
-            self.save(f'{self.save_prefix}/{t}', energy)
+            self.save(f'{self.save_prefix}/{t}.npz', energy)
+            print(t,energy)
             t += 1
 
-            print(energy) ## test
 
     def markov_chain(self):
         n, m = self.size
