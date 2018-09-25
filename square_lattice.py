@@ -165,6 +165,8 @@ class SquareLattice(list):
             for j in range(m):
                 prepare[f'node_{i}_{j}'] = self[i][j]
                 prepare[f'legs_{i}_{j}'] = self[i][j].legs
+        if "t" not in prepare:
+            prepare["t"] = "SU"
         np.savez_compressed(f'{self.save_prefix}/{prepare["t"]}.npz', **prepare)
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
@@ -248,17 +250,17 @@ class SquareLattice(list):
             for j in range(base, m-1, 2):
                 # j,j+1
                 self[i][j]\
-                    .tensor_multiple(self.env_v[i-1][j], 'u')\
-                    .tensor_multiple(self.env_h[i][j-1], 'l')\
-                    .tensor_multiple(self.env_v[i][j], 'd')
+                    .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
+                    .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)\
+                    .tensor_multiple(self.env_v[i][j], 'd', restrict_mode=False)
                 self[i][j+1]\
-                    .tensor_multiple(self.env_v[i-1][j+1], 'u')\
-                    .tensor_multiple(self.env_h[i][j+1], 'r')\
-                    .tensor_multiple(self.env_v[i][j+1], 'd')
+                    .tensor_multiple(self.env_v[i-1][j+1], 'u', restrict_mode=False)\
+                    .tensor_multiple(self.env_h[i][j+1], 'r', restrict_mode=False)\
+                    .tensor_multiple(self.env_v[i][j+1], 'd', restrict_mode=False)
                 tmp_left, r1 = self[i][j].tensor_qr(
-                    ['u', 'l', 'd'], ['r', 'p'], ['r', 'l'])
-                tmp_right, r2 = self[i][j].tensor_qr(
-                    ['u', 'r', 'd'], ['l', 'p'], ['l', 'r'])
+                    ['u', 'l', 'd'], ['r', 'p'], ['r', 'l'], restrict_mode=False)
+                tmp_right, r2 = self[i][j+1].tensor_qr(
+                    ['u', 'r', 'd'], ['l', 'p'], ['l', 'r'], restrict_mode=False)
                 r1.tensor_multiple(self.env_h[i][j], 'r')
                 big = np.tensor_contract(r1, r2, ['r'], ['l'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
@@ -269,31 +271,31 @@ class SquareLattice(list):
                 self[i][j+1] = v[:, :, :self.D]\
                     .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
                 self[i][j]\
-                    .tensor_multiple(1/self.env_v[i-1][j], 'u')\
-                    .tensor_multiple(1/self.env_h[i][j-1], 'l')\
-                    .tensor_multiple(1/self.env_v[i][j], 'd')
+                    .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_v[i][j], 'd', restrict_mode=False)
                 self[i][j+1]\
-                    .tensor_multiple(1/self.env_v[i-1][j+1], 'u')\
-                    .tensor_multiple(1/self.env_h[i][j+1], 'r')\
-                    .tensor_multiple(1/self.env_v[i][j+1], 'd')
+                    .tensor_multiple(1/self.env_v[i-1][j+1], 'u', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_h[i][j+1], 'r', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_v[i][j+1], 'd', restrict_mode=False)
 
-    def itebd_once_v(self):
+    def itebd_once_v(self,base):
         n, m = self.size
         for i in range(n-1):
             for j in range(m):
                 # i,i+1
                 self[i][j]\
-                    .tensor_multiple(self.env_h[i][j-1], 'l')\
-                    .tensor_multiple(self.env_v[i-1][j], 'u')\
-                    .tensor_multiple(self.env_h[i][j], 'r')
+                    .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)\
+                    .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
+                    .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)
                 self[i+1][j]\
-                    .tensor_multiple(self.env_h[i+1][j-1], 'l')\
-                    .tensor_multiple(self.env_v[i+1][j], 'd')\
-                    .tensor_multiple(self.env_h[i+1][j], 'r')
+                    .tensor_multiple(self.env_h[i+1][j-1], 'l', restrict_mode=False)\
+                    .tensor_multiple(self.env_v[i+1][j], 'd', restrict_mode=False)\
+                    .tensor_multiple(self.env_h[i+1][j], 'r', restrict_mode=False)
                 tmp_up, r1 = self[i][j].tensor_qr(
-                    ['l', 'u', 'r'], ['d', 'p'], ['d', 'u'])
-                tmp_down, r2 = self[i][j].tensor_qr(
-                    ['l', 'd', 'r'], ['u', 'p'], ['u', 'd'])
+                    ['l', 'u', 'r'], ['d', 'p'], ['d', 'u'], restrict_mode=False)
+                tmp_down, r2 = self[i+1][j].tensor_qr(
+                    ['l', 'd', 'r'], ['u', 'p'], ['u', 'd'], restrict_mode=False)
                 r1.tensor_multiple(self.env_v[i][j], 'd')
                 big = np.tensor_contract(r1, r2, ['d'], ['u'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
@@ -304,21 +306,22 @@ class SquareLattice(list):
                 self[i+1][j] = v[:, :, :self.D]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
                 self[i][j]\
-                    .tensor_multiple(1/self.env_h[i][j-1], 'l')\
-                    .tensor_multiple(1/self.env_v[i-1][j], 'u')\
-                    .tensor_multiple(1/self.env_h[i][j], 'r')
+                    .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_h[i][j], 'r', restrict_mode=False)
                 self[i+1][j]\
-                    .tensor_multiple(1/self.env_h[i+1][j-1], 'l')\
-                    .tensor_multiple(1/self.env_v[i+1][j], 'd')\
-                .tensor_multiple(1/self.env_h[i+1][j], 'r')
+                    .tensor_multiple(1/self.env_h[i+1][j-1], 'l', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_v[i+1][j], 'd', restrict_mode=False)\
+                .tensor_multiple(1/self.env_h[i+1][j], 'r', restrict_mode=False)
 
 
     def itebd_done(self):
+        n, m = self.size
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         for i in range(n-1):
             for j in range(m-1):
-                self.lattice[i][j]\
+                self[i][j]\
                     .tensor_multiple(self.env_v[i][j], 'd')\
                     .tensor_multiple(self.env_h[i][j], 'r')
         self.spin.fresh()

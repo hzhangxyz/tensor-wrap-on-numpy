@@ -114,9 +114,11 @@ class tensor(ndarray):
         if leg not in self.legs:
             if restrict_mode:
                 raise Exception("leg not match in multiple")
-        shape = ones(self.ndim, dtype=int)
-        shape[self.legs.index(leg)] = -1
-        self*=arr.reshape(shape)
+        else:
+            shape = ones(self.ndim, dtype=int)
+            shape[self.legs.index(leg)] = -1
+            self*=arr.reshape(shape)
+        return self
 
     """
     def __matmul__(self, b):
@@ -133,9 +135,13 @@ class tensor(ndarray):
         pass
     """
 
-    def tensor_svd(self, legs1, legs2, new_legs, *args, **kw):
-        assert set(legs1) | set(legs2) == set(
-            self.legs), "svd legs not correct"
+    def tensor_svd(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
+        assert set(legs1) | set(legs2) >= set(self.legs) or set(legs1) & set(legs2) == set(), "svd legs not correct"
+        if restrict_mode:
+            assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
+        else:
+            legs1 = [i for i in legs1 if i in self.legs]
+            legs2 = [i for i in legs2 if i in self.legs]
         transposed = self.tensor_transpose([*legs1, *legs2])
         size1 = prod(transposed.shape[:len(legs1)])
         size2 = prod(transposed.shape[len(legs1):])
@@ -154,9 +160,13 @@ class tensor(ndarray):
         pass
     """
 
-    def tensor_qr(self, legs1, legs2, new_legs, *args, **kw):
-        assert set(legs1) | set(legs2) == set(
-            self.legs), "qr legs not correct"
+    def tensor_qr(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
+        assert set(legs1) | set(legs2) >= set(self.legs) or set(legs1) & set(legs2) == set() , "qr legs not correct"
+        if restrict_mode:
+            assert set(legs1) | set(legs2) == set(self.legs), "qr legs not correct"
+        else:
+            legs1 = [i for i in legs1 if i in self.legs]
+            legs2 = [i for i in legs2 if i in self.legs]
         transposed = self.tensor_transpose([*legs1, *legs2])
         size1 = prod(transposed.shape[:len(legs1)])
         size2 = prod(transposed.shape[len(legs1):])
