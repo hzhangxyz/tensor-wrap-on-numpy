@@ -1,6 +1,5 @@
 from numpy import *
 
-
 class tensor(ndarray):
     def __new__(cls, input_array, legs=None):
         obj = asarray(input_array).view(cls)
@@ -90,7 +89,7 @@ class tensor(ndarray):
         return res
 
     def tensor_contract(self, tensor, legs1, legs2,
-                        legs_dict1=None, legs_dict2=None):
+                        legs_dict1=None, legs_dict2=None, restrict_mode=True):
         tensor1 = self
         tensor2 = tensor
         legs_dict1 = {} if legs_dict1 is None else legs_dict1
@@ -101,6 +100,9 @@ class tensor(ndarray):
             if i in tensor1.legs and j in tensor2.legs:
                 order1.append(tensor1.legs.index(str(i)))
                 order2.append(tensor2.legs.index(str(j)))
+            else:
+                if restrict_mode:
+                    raise Exception("leg not match")
         legs = [j if j not in legs_dict1 else legs_dict1[j]
                 for j in tensor1.legs if j not in legs1] +\
             [j if j not in legs_dict2 else legs_dict2[j]
