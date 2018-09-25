@@ -1,6 +1,5 @@
 from numpy import *
 
-
 class tensor(ndarray):
     def __new__(cls, input_array, legs=None):
         obj = asarray(input_array).view(cls)
