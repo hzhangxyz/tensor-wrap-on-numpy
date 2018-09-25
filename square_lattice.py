@@ -234,16 +234,21 @@ class SquareLattice(list):
             return
         self.Evolution = self.Identity - delta * self.Hamiltonian
         for t in range(step):
-            self.itebd_once_h(0)
-            self.itebd_once_h(1)
-            self.itebd_once_v(0)
-            self.itebd_once_v(1)
-        if end:
-            self.itebd_done()
-            if energy:
+            self.__itebd_once_h(0)
+            self.__itebd_once_h(1)
+            self.__itebd_once_v(0)
+            self.__itebd_once_v(1)
+            if energy and t%10 == 0 and t!=0:
+                self.__pre_itebd_done()
+                print('itebd',t,end=' ')
                 print(self.markov_chain()[0])
+                self.__pre_itebd_done_restore()
+        if end:
+            self.__itebd_done()
+            if energy:
+                print('itebd done',self.markov_chain()[0])
 
-    def itebd_once_h(self, base):
+    def __itebd_once_h(self, base):
         n, m = self.size
         for i in range(n):
             for j in range(base, m-1, 2):
@@ -280,7 +285,7 @@ class SquareLattice(list):
                     .tensor_multiple(1/self.env_h[i][j+1], 'r', restrict_mode=False)\
                     .tensor_multiple(1/self.env_v[i][j+1], 'd', restrict_mode=False)
 
-    def itebd_once_v(self,base):
+    def __itebd_once_v(self,base):
         n, m = self.size
         for i in range(n-1):
             for j in range(m):
@@ -318,17 +323,29 @@ class SquareLattice(list):
                     .tensor_multiple(1/self.env_h[i+1][j], 'r', restrict_mode=False)
 
 
-    def itebd_done(self):
+    def __itebd_done(self):
         n, m = self.size
+        self.__pre_itebd_done()
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+        self.save()
+
+    def __pre_itebd_done(self):
+        n, m = self.size
         for i in range(n-1):
             for j in range(m-1):
                 self[i][j]\
                     .tensor_multiple(self.env_v[i][j], 'd')\
                     .tensor_multiple(self.env_h[i][j], 'r')
         self.spin.fresh()
-        self.save()
+
+    def __pre_itebd_done_restore(self):
+        n, m = self.size
+        for i in range(n-1):
+            for j in range(m-1):
+                self[i][j]\
+                    .tensor_multiple(1/self.env_v[i][j], 'd')\
+                    .tensor_multiple(1/self.env_h[i][j], 'r')
 
 class SpinState(list):
 
