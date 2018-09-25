@@ -196,6 +196,10 @@ class SquareLattice(list):
         else:
             return None, None
 
+    def pre_heating(self, step):
+        for markov_step in range(step):
+            self.spin = self.spin.markov_chain_hop()
+
 
 class SpinState(list):
 
