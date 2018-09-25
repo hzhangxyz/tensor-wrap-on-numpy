@@ -171,23 +171,23 @@ class SquareLattice(list):
 
     def markov_chain(self):
         n, m = self.size
-        if mpi_rank == 0:
-            sum_E_s = np.tensor(0.)    
-            sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
-            Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
-        for i in range(self.markov_chain_length):
+        sum_E_s = np.tensor(0.)
+        sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
+        Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
+        for markov_step in range(self.markov_chain_length):
             E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
-            tmp1 = mpi_comm.reduce(E_s, root=0)
-            if mpi_rank == 0:
-                sum_E_s += tmp1
+            sum_E_s += E_s
             for i in range(n):
                 for j in range(m):
-                    tmp2 = mpi_comm.reduce(Delta_s[i][j], root=0)
-                    tmp3 = mpi_comm.reduce(E_s * Delta_s[i][j], root=0)
-                    if mpi_rank == 0:
-                        sum_Delta_s[i][j][self.spin[i][j]] += tmp2
-                        Prod[i][j][self.spin[i][j]] += tmp3
+                    sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
+                    Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
             self.spin = self.spin.markov_chain_hop()
+
+        sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
+        for i in range(n):
+            for j in range(m):
+                sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
+                Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
         if mpi_rank == 0:
             Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -
                      2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
