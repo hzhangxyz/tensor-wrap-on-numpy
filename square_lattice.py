@@ -302,7 +302,7 @@ class SquareLattice(list):
                 self.env_h[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_left, ['l'], ['r'], {'P1': 'p'})
-                self[i][j+1] = v[:, :, :thisD]\
+                self[i][j+1] = v[:thisD, :, :]\
                     .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
 
                 self[i][j]\
@@ -341,7 +341,7 @@ class SquareLattice(list):
                 self.env_h[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
-                self[i+1][j] = v[:, :, :thisD]\
+                self[i+1][j] = v[:thisD, :, :]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
 
                 self[i][j]\
