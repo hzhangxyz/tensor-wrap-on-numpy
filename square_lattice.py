@@ -234,7 +234,6 @@ class SquareLattice(list):
             return
         self.Evolution = self.Identity - delta * self.Hamiltonian
         for t in range(step):
-            print("itebd",t)
             self.itebd_once_h(0)
             self.itebd_once_h(1)
             self.itebd_once_v(0)
@@ -264,11 +263,13 @@ class SquareLattice(list):
                 r1.tensor_multiple(self.env_h[i][j], 'r')
                 big = np.tensor_contract(r1, r2, ['r'], ['l'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
+                big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'])
-                self.env_h[i][j] = s[:self.D]
-                self[i][j] = u[:, :, :self.D]\
+                thisD = min(self.D,len(s))
+                self.env_h[i][j] = s[:thisD]
+                self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_left, ['l'], ['r'], {'P1': 'p'})
-                self[i][j+1] = v[:, :, :self.D]\
+                self[i][j+1] = v[:, :, :thisD]\
                     .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
@@ -299,11 +300,13 @@ class SquareLattice(list):
                 r1.tensor_multiple(self.env_v[i][j], 'd')
                 big = np.tensor_contract(r1, r2, ['d'], ['u'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
+                big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'])
-                self.env_h[i][j] = s[:self.D]
-                self[i][j] = u[:, :, :self.D]\
+                thisD = min(self.D,len(s))
+                self.env_h[i][j] = s[:thisD]
+                self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
-                self[i+1][j] = v[:, :, :self.D]\
+                self[i+1][j] = v[:, :, :thisD]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
                 self[i][j]\
                     .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
@@ -312,7 +315,7 @@ class SquareLattice(list):
                 self[i+1][j]\
                     .tensor_multiple(1/self.env_h[i+1][j-1], 'l', restrict_mode=False)\
                     .tensor_multiple(1/self.env_v[i+1][j], 'd', restrict_mode=False)\
-                .tensor_multiple(1/self.env_h[i+1][j], 'r', restrict_mode=False)
+                    .tensor_multiple(1/self.env_h[i+1][j], 'r', restrict_mode=False)
 
 
     def itebd_done(self):
@@ -396,6 +399,7 @@ class SpinState(list):
             self.w_s = self.w_s\
                 .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
                 .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+        assert self.w_s != 0., "w_s == 0"
         return self.w_s
 
     def test_w_s(self):

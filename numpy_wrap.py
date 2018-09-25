@@ -143,8 +143,8 @@ class tensor(ndarray):
             legs1 = [i for i in legs1 if i in self.legs]
             legs2 = [i for i in legs2 if i in self.legs]
         transposed = self.tensor_transpose([*legs1, *legs2])
-        size1 = prod(transposed.shape[:len(legs1)])
-        size2 = prod(transposed.shape[len(legs1):])
+        size1 = prod(transposed.shape[:len(legs1)], dtype=int)
+        size2 = prod(transposed.shape[len(legs1):], dtype=int)
         tensor1, env, tensor2 = linalg.svd(transposed.reshape(
             [size1, size2]), *args, **kw)
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
@@ -168,8 +168,8 @@ class tensor(ndarray):
             legs1 = [i for i in legs1 if i in self.legs]
             legs2 = [i for i in legs2 if i in self.legs]
         transposed = self.tensor_transpose([*legs1, *legs2])
-        size1 = prod(transposed.shape[:len(legs1)])
-        size2 = prod(transposed.shape[len(legs1):])
+        size1 = prod(transposed.shape[:len(legs1)], dtype=int)
+        size2 = prod(transposed.shape[len(legs1):], dtype=int)
         tensor1, tensor2 = linalg.qr(transposed.reshape(
             [size1, size2]), *args, **kw)
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
