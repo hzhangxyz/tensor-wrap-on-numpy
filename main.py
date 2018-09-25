@@ -24,4 +24,4 @@ lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, a
 if not args.continued:
     lattice.itebd(100,0.01,True)
 
-lattice.grad_descent()
+#lattice.grad_descent()

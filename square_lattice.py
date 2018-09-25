@@ -259,13 +259,13 @@ class SquareLattice(list):
             if energy and t%10 == 0 and t!=0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
+                print(self.markov_chain()[0],end=' ')
                 print(self.accurate_energy())
-                #print(self.markov_chain()[0])
                 self.__pre_itebd_done_restore()
         if end:
             self.__itebd_done()
             if energy:
-                print('itebd done',self.markov_chain()[0])
+                print('# itebd done',self.markov_chain()[0])
 
     def __itebd_once_h(self, base):
         n, m = self.size
@@ -280,7 +280,7 @@ class SquareLattice(list):
                     .tensor_multiple(self.env_v[i-1][j+1], 'u', restrict_mode=False)\
                     .tensor_multiple(self.env_h[i][j+1], 'r', restrict_mode=False)\
                     .tensor_multiple(self.env_v[i][j+1], 'd', restrict_mode=False)
-                """
+
                 tmp_left, r1 = self[i][j].tensor_qr(
                     ['u', 'l', 'd'], ['r', 'p'], ['r', 'l'], restrict_mode=False)
                 tmp_right, r2 = self[i][j+1].tensor_qr(
@@ -295,16 +295,7 @@ class SquareLattice(list):
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_left, ['l'], ['r'], {'P1': 'p'})
                 self[i][j+1] = v[:, :, :thisD]\
-                    .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})"""
-                self[i][j].tensor_multiple(self.env_h[i][j], 'r')
-                big = np.tensor_contract(self[i][j], self[i][j+1], ['r'], ['l'], {'p': 'p1','u':'u1','d':'d1'}, {'p': 'p2','u':'u2','d':'d2'})
-                big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
-                big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['l', 'P1','u1','d1'], ['r', 'P2','u2','d2'], ['r', 'l'],restrict_mode=False)
-                thisD = min(self.D,len(s))
-                self.env_h[i][j] = s[:thisD]
-                self[i][j] = u[:, :, :thisD].rename_legs({'d1':'d','u1':'u','P1':'p'},restrict_mode=False)
-                self[i][j+1] = v[:, :, :thisD].rename_legs({'d2':'d','u2':'u','P2':'p'},restrict_mode=False)
+                    .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
@@ -328,7 +319,7 @@ class SquareLattice(list):
                     .tensor_multiple(self.env_h[i+1][j-1], 'l', restrict_mode=False)\
                     .tensor_multiple(self.env_v[i+1][j], 'd', restrict_mode=False)\
                     .tensor_multiple(self.env_h[i+1][j], 'r', restrict_mode=False)
-                """
+
                 tmp_up, r1 = self[i][j].tensor_qr(
                     ['l', 'u', 'r'], ['d', 'p'], ['d', 'u'], restrict_mode=False)
                 tmp_down, r2 = self[i+1][j].tensor_qr(
@@ -337,22 +328,13 @@ class SquareLattice(list):
                 big = np.tensor_contract(r1, r2, ['d'], ['u'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['u', 'p1'], ['d', 'p2'], ['d', 'u'])
+                u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'])
                 thisD = min(self.D,len(s))
                 self.env_h[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_up, ['u'], ['d'], {'p1': 'p'})
                 self[i+1][j] = v[:, :, :thisD]\
-                    .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})"""
-                self[i][j].tensor_multiple(self.env_v[i][j], 'd')
-                big = np.tensor_contract(self[i][j], self[i+1][j], ['d'], ['u'], {'p': 'p1','l':'l1','r':'r1'}, {'p': 'p2','l':'l2','r':'r2'})
-                big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
-                big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['u', 'P1','l1','r1'], ['d', 'P2','l2','r2'], ['d', 'u'],restrict_mode=False)
-                thisD = min(self.D,len(s))
-                self.env_h[i][j] = s[:thisD]
-                self[i][j] = u[:, :, :thisD].rename_legs({'P1':'p','l1':'l','r1':'r'},restrict_mode=False)
-                self[i+1][j] = v[:, :, :thisD].rename_legs({'P2':'p','l2':'l','r2':'r'},restrict_mode=False)
+                    .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
