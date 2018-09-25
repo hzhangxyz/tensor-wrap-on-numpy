@@ -92,6 +92,19 @@ class SquareLattice(list):
 
         return obj
 
+    def __check_shape(self, input, i, j):
+        legs = 'lrud'
+        if i == 0:
+            legs = legs.replace('u', '')
+        if i == self.size[0]-1:
+            legs = legs.replace('d', '')
+        if j == 0:
+            legs = legs.replace('l', '')
+        if j == self.size[1]-1:
+            legs = legs.replace('r', '')
+        assert input.tensor_transpose(['p', *legs]).shape == (2, *[self.D for i in legs]), 'input save data not match shape'
+        return input
+
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
         if load_from == None or not os.path.exists(load_from):
             if mpi_rank == 0:
@@ -106,7 +119,8 @@ class SquareLattice(list):
             self.load_from = None
         else:
             prepare = np.load(load_from)
-            super().__init__([[np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']) for j in range(m)] for i in range(n)])  # random init
+            super().__init__([[self.__check_shape(np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']), i, j)
+                for j in range(m)] for i in range(n)])  # random init
             self.D_c = D_c
             self.scan_time = scan_time
             if f'spin' in prepare and len(prepare['spin']) > mpi_rank:
