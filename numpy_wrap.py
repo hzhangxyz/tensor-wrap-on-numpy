@@ -77,9 +77,13 @@ class tensor(ndarray):
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
         return self
 
-    def rename_legs(self, legs_dict):
+    def rename_legs(self, legs_dict, restrict_mode=True):
         for i, j in legs_dict.items():
-            self.legs[self.legs.index(str(i))] = str(j)
+            if str(i) in self.legs:
+                self.legs[self.legs.index(str(i))] = str(j)
+            else:
+                if restrict_mode:
+                    raise Exception("leg not found")
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
         return self
 
