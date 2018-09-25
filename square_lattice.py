@@ -247,17 +247,26 @@ class SquareLattice(list):
         return psi.tensor_contract(Hpsi,psi.legs,psi.legs)/psi.tensor_contract(psi,psi.legs,psi.legs)/n/m
 
     def itebd(self, step, delta, end=False, energy=True):
+        n, m = self.size
         if mpi_rank != 0:
             return
         self.Evolution = self.Identity - delta * self.Hamiltonian
+        file = open(f'{self.save_prefix}/SU', 'w')
         for t in range(step):
             self.__itebd_once_h(0)
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if energy and t%10 == 0:
+            """
+            for i in range(n):
+                for j in range(m):
+                    self[i][j] = self[i][j] + self[i][j] * (np.random.rand(*self[i][j].shape)-0.5)/(t+1)
+            """
+            if energy and t%1 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
+                file.write(f'{t} {self.accurate_energy()}\n')
+                file.flush()
                 #print(self.markov_chain()[0])
                 print(self.accurate_energy())
                 self.__pre_itebd_done_restore()

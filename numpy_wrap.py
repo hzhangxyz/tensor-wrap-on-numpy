@@ -156,7 +156,7 @@ class tensor(ndarray):
         if not isinstance(new_legs, list):
             new_legs = [new_legs, new_legs]
         tensor1.set_legs([*legs1, new_legs[0]])
-        tensor2.set_legs([*legs2, new_legs[1]])
+        tensor2.set_legs([new_legs[1], *legs])
         return tensor1, env, tensor2
 
     """
@@ -181,7 +181,7 @@ class tensor(ndarray):
         if not isinstance(new_legs, list):
             new_legs = [new_legs, new_legs]
         tensor1.set_legs([*legs1, new_legs[0]])
-        tensor2.set_legs([*legs2, new_legs[1]])
+        tensor2.set_legs([new_legs[1], *legs2])
         return tensor1, tensor2
 
 
