@@ -249,6 +249,8 @@ class SpinState(list):
         self.flag_right_to_left = False
         self.w_s = None
 
+        self.res = None
+
     def __init__(self, lattice, spin_state=None):
         if spin_state is not None:
             super().__init__([[int(spin_state[i][j]) for j in range(self.size[1])] for i in range(self.size[0])])
@@ -311,6 +313,8 @@ class SpinState(list):
         第一部分:对角
         第二部分:交换
         """
+        if self.res is not None:
+            return self.res
         n, m = self.size
         self.__auxiliary()
         E_s_diag = 0.
@@ -386,7 +390,8 @@ class SpinState(list):
                         .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False) * 2 / self.cal_w_s()  # 哈密顿量
 
         E_s = E_s_diag + E_s_non_diag
-        return 0.25*E_s, Delta_s
+        self.res = 0.25*E_s, Delta_s
+        return self.res
 
     def __auxiliary(self):
         self.__auxiliary_up_to_down()

@@ -15,7 +15,10 @@ while os.path.exists(f'{name}/load_from'):
     tmp = np.loadtxt(f'{name}/log')
     data.append(tmp[:index])
 
-data = np.concatenate(data[::-1])[:,1]
+if len(data)==0:
+    data = []
+else:
+    data = np.concatenate(data[::-1])[:,1]
 
 def handle_close(evt):
     exit()
