@@ -244,8 +244,7 @@ class SquareLattice(list):
             for j in range(m):
                 Hpsi += psi.tensor_contract(self.Hamiltonian,
                         [f'p_{i}_{j}',f'p_{i+1}_{j}'],['p1','p2'],{},{'P1':f'p_{i}_{j}','P2':f'p_{i+1}_{j}'},restrict_mode=False)
-        return psi.tensor_contract(Hpsi,psi.legs,psi.legs)/psi.tensor_contract(psi,psi.legs,psi.legs)
-
+        return psi.tensor_contract(Hpsi,psi.legs,psi.legs)/psi.tensor_contract(psi,psi.legs,psi.legs)/n/m
 
     def itebd(self, step, delta, end=False, energy=True):
         if mpi_rank != 0:
@@ -256,10 +255,10 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if energy and t%10 == 0 and t!=0:
+            if energy and t%10 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
-                print(self.markov_chain()[0],end=' ')
+                #print(self.markov_chain()[0])
                 print(self.accurate_energy())
                 self.__pre_itebd_done_restore()
         if end:
@@ -308,7 +307,7 @@ class SquareLattice(list):
 
     def __itebd_once_v(self,base):
         n, m = self.size
-        for i in range(n-1):
+        for i in range(base,n-1,2):
             for j in range(m):
                 # i,i+1
                 self[i][j]\
@@ -332,7 +331,7 @@ class SquareLattice(list):
                 thisD = min(self.D,len(s))
                 self.env_h[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
-                    .tensor_contract(tmp_up, ['u'], ['d'], {'p1': 'p'})
+                    .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
                 self[i+1][j] = v[:, :, :thisD]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
 
@@ -351,24 +350,31 @@ class SquareLattice(list):
         self.__pre_itebd_done()
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+        for i in range(n):
+            for j in range(m):
+                assert self[i][j].legs[0] == 'p', "lattice need to translate"
         self.save()
 
     def __pre_itebd_done(self):
         n, m = self.size
-        for i in range(n-1):
-            for j in range(m-1):
+        for i in range(n):
+            for j in range(m):
                 self[i][j]\
-                    .tensor_multiple(self.env_v[i][j], 'd')\
-                    .tensor_multiple(self.env_h[i][j], 'r')
+                    .tensor_multiple(self.env_v[i][j], 'd', restrict_mode=False)\
+                    .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)\
+                    .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
+                    .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)
         self.spin.fresh()
 
     def __pre_itebd_done_restore(self):
         n, m = self.size
-        for i in range(n-1):
-            for j in range(m-1):
+        for i in range(n):
+            for j in range(m):
                 self[i][j]\
-                    .tensor_multiple(1/self.env_v[i][j], 'd')\
-                    .tensor_multiple(1/self.env_h[i][j], 'r')
+                    .tensor_multiple(1/self.env_v[i][j], 'd', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_h[i][j], 'r', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
+                    .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)
 
 class SpinState(list):
 
