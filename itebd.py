@@ -1,8 +1,8 @@
 import numpy_wrap as np
-from square_lattice import SquareLattice as sl
+from square_lattice import SquareLattice
 
 
-class ITEBD(sl):
+class ITEBD(SquareLattice):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
@@ -21,6 +21,7 @@ class ITEBD(sl):
     def itebd(self, step, delta, end=False, energy=True):
         self.Evolution = self.Identity - delta * self.Hamiltonian
         for t in range(step):
+            print("itebd",t)
             self.itebd_once_h(0)
             self.itebd_once_h(1)
             self.itebd_once_v(0)

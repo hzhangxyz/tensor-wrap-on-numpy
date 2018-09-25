@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import square_lattice as sl
+from itebd import ITEBD
 import numpy_wrap as np
 import argparse
 
@@ -19,6 +19,9 @@ args = parser.parse_args()
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
 
-lattice = sl.SquareLattice(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov_chain_length, args.load_from, args.save_prefix)
+lattice = ITEBD(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov_chain_length, args.load_from, args.save_prefix)
+
+if not args.continued:
+    lattice.itebd(100,0.01,True)
 
 lattice.grad_descent()
