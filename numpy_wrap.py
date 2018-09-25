@@ -152,7 +152,7 @@ class tensor(ndarray):
         tensor1, env, tensor2 = linalg.svd(transposed.reshape(
             [size1, size2]), *args, **kw)
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
-        tensor2 = tensor2.reshape([*transposed.shape[len(legs1):], tensor2.size//size2])
+        tensor2 = tensor2.reshape([tensor2.size//size2, *transposed.shape[len(legs1):]])
         if not isinstance(new_legs, list):
             new_legs = [new_legs, new_legs]
         tensor1.set_legs([*legs1, new_legs[0]])
@@ -177,7 +177,7 @@ class tensor(ndarray):
         tensor1, tensor2 = linalg.qr(transposed.reshape(
             [size1, size2]), *args, **kw)
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
-        tensor2 = tensor2.reshape([*transposed.shape[len(legs1):], tensor2.size//size2])
+        tensor2 = tensor2.reshape([tensor2.size//size2, *transposed.shape[len(legs1):]])
         if not isinstance(new_legs, list):
             new_legs = [new_legs, new_legs]
         tensor1.set_legs([*legs1, new_legs[0]])
