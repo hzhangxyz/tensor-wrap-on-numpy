@@ -102,13 +102,21 @@ class tensor(ndarray):
                 order2.append(tensor2.legs.index(str(j)))
             else:
                 if restrict_mode:
-                    raise Exception("leg not match")
+                    raise Exception("leg not match contract")
         legs = [j if j not in legs_dict1 else legs_dict1[j]
                 for j in tensor1.legs if j not in legs1] +\
             [j if j not in legs_dict2 else legs_dict2[j]
              for j in tensor2.legs if j not in legs2]
         res = tensordot(tensor1, tensor2, [order1, order2])
         return self.__class__(res, legs=legs)
+
+    def tensor_multiple(self, arr, leg, restrict_mode=True):
+        if leg not in self.legs:
+            if restrict_mode:
+                raise Exception("leg not match in multiple")
+        shape = ones(self.ndim, dtype=int)
+        shape[self.legs.index(leg)] = -1
+        self*=arr.reshape(shape)
 
     """
     def __matmul__(self, b):
