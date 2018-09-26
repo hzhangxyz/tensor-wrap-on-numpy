@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 import numpy_wrap as np
 from mpi4py import MPI
 
@@ -85,13 +86,6 @@ class SquareLattice(list):
             legs = legs.replace('r', '')
         return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
 
-    def __new__(self, n, m, D, D_c, scan_time, *args, **kw):
-        obj = super().__new__(SquareLattice)
-        obj.size = n, m
-        obj.D = D
-
-        return obj
-
     def __check_shape(self, input, i, j):
         legs = 'lrud'
         if i == 0:
@@ -105,30 +99,67 @@ class SquareLattice(list):
         assert input.tensor_transpose(['p', *legs]).shape == (2, *[self.D for i in legs]), 'input save data not match shape'
         return input
 
+    def __new__(cls, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
+        obj = super().__new__(SquareLattice)
+        obj.size = n, m
+        obj.D = D
+        if load_from != None and not os.path.exists(load_from):
+            print(f"{load_from} not found")
+            load_from = None
+        obj.load_from = load_from
+        # 准备在载入lattice信息之前需要用到的东西
+
+        return obj
+
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
-        if load_from == None or not os.path.exists(load_from):
+        if self.load_from == None:
             if mpi_rank == 0:
                 tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
             else:
                 tmp = None
             super().__init__(mpi_comm.bcast(tmp, root=0))  # random init
-            self.D_c = D_c
-            self.scan_time = scan_time
-            self.spin = SpinState(self, spin_state=None)
-
-            self.load_from = None
         else:
             prepare = np.load(load_from)
-            super().__init__([[self.__check_shape(np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']), i, j)
+            print(f'{load_from} loaded')
+            super().__init__([[self.__check_shape(np.tensor(prepare[f'node'][i][j], legs=prepare[f'legs'][i][j]), i, j)
                 for j in range(m)] for i in range(n)])  # random init
-            self.D_c = D_c
-            self.scan_time = scan_time
+            self.prepare = prepare
+        # 载入lattice信息
+
+        self.D_c = D_c
+        self.scan_time = scan_time
+
+        self.markov_chain_length = markov_chain_length
+        self.step_size = step_size
+
+        self.Hamiltonian = np.tensor(
+            np.array([1, 0, 0, 0, 0, -1, 2, 0, 0, 2, -1, 0, 0, 0, 0, 1])
+            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])/4.
+        self.Identity = np.tensor(
+            np.identity(4)
+            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
+        # 保存参数
+
+        if self.load_from == None:
+            self.spin = SpinState(self, spin_state=None)
+        else:
             if f'spin' in prepare and len(prepare['spin']) > mpi_rank:
                 self.spin = SpinState(self, spin_state=prepare['spin'][mpi_rank])
             else:
                 self.spin = SpinState(self, spin_state=None)
+        # 准备spin state
 
-            self.load_from = load_from
+        if self.load_from == None or "env_v" not in self.load_from or "env_h" not in self.load_from:
+            self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+            self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+            for i in range(n):
+                self.env_h[i][m-1] = np.array(1)
+            for j in range(m):
+                self.env_v[n-1][j] = np.array(1)
+        else:
+            self.env_v = self.prepare["env_v"]
+            self.env_h = self.prepare["env_h"]
+        # 准备su用的环境
 
         if mpi_rank == 0:
             self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
@@ -136,49 +167,33 @@ class SquareLattice(list):
             if self.load_from is not None:
                 os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
             file = open(f'{self.save_prefix}/parameter', 'w')
-            file.write(f'n={n}\nm={m}\nD={D}\nD_c={D_c}\nscan_time={scan_time}\nstep_size={step_size}\nmarkov_chain_length={markov_chain_length}\n')
+            file.write(str(sys.argv))
             file.close()
             split_name = os.path.split(self.save_prefix)
             if os.path.exists(f'{split_name[0]}/last'):
                 os.remove(f'{split_name[0]}/last')
             os.symlink(split_name[1], f'{split_name[0]}/last')
+        # 文件记录
 
-        self.markov_chain_length = markov_chain_length
-        self.step_size = step_size
-
-        self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        for i in range(n):
-            self.env_h[i][m-1] = np.array(1)
-        for j in range(m):
-            self.env_v[n-1][j] = np.array(1)
-        self.Hamiltonian = np.tensor(
-            np.array([1, 0, 0, 0, 0, -1, 2, 0, 0, 2, -1, 0, 0, 0, 0, 1])
-            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])/4.
-        self.Identity = np.tensor(
-            np.identity(4)
-            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
 
     def save(self, **prepare):
+        # prepare 里需要有name
         n, m = self.size
-        for i in range(n):
-            for j in range(m):
-                prepare[f'node_{i}_{j}'] = self[i][j]
-                prepare[f'legs_{i}_{j}'] = self[i][j].legs
-        if "t" not in prepare:
-            prepare["t"] = "SU"
-        np.savez_compressed(f'{self.save_prefix}/{prepare["t"]}.npz', **prepare)
+        prepare['node'] = [[self[i][j] for j in range(m)] for i in range(n)]
+        prepare['legs'] = [[self[i][j].legs for j in range(m)] for i in range(n)]
+        np.savez_compressed(f'{self.save_prefix}/{prepare["name"]}.npz', **prepare)
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
         if os.path.exists(f'{self.save_prefix}/last.npz'):
             os.rename(f'{self.save_prefix}/last.npz', f'{self.save_prefix}/bak.npz')
-        os.symlink(f'{prepare["t"]}.npz', f'{self.save_prefix}/last.npz')
+        os.symlink(f'{prepare["name"]}.npz', f'{self.save_prefix}/last.npz')
+        # spin state 通过参数传进来, 因为他需要mpi gather
 
     def grad_descent(self):
         n, m = self.size
         t = 0
         if mpi_rank == 0:
-            file = open(f'{self.save_prefix}/log', 'w')
+            file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
             energy, grad = self.markov_chain()
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
@@ -187,7 +202,7 @@ class SquareLattice(list):
                 for i in range(n):
                     for j in range(m):
                         self[i][j] -= self.step_size*grad[i][j]
-                self.save(energy=energy, t=t, spin=spin)
+                self.save(energy=energy, name=f'GM.{t}', spin=spin)
                 file.write(f'{t} {energy}\n')
                 file.flush()
                 print(t, energy)
@@ -246,37 +261,32 @@ class SquareLattice(list):
                         [f'p_{i}_{j}',f'p_{i+1}_{j}'],['p1','p2'],{},{'P1':f'p_{i}_{j}','P2':f'p_{i+1}_{j}'},restrict_mode=False)
         return psi.tensor_contract(Hpsi,psi.legs,psi.legs)/psi.tensor_contract(psi,psi.legs,psi.legs)/n/m
 
-    def itebd(self, delta, accurate=False):
+    def itebd(self, accurate=False):
         n, m = self.size
         if mpi_rank != 0:
             return
-        self.Evolution = self.Identity - delta * self.Hamiltonian
-        file = open(f'{self.save_prefix}/SU', 'w')
+        self.__pre_itebd_done_restore() # 载入后第一次前需要还原
+        self.Evolution = self.Identity - self.step_size * self.Hamiltonian
+        file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
         while True:
             self.__itebd_once_h(0)
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if t%1 == 0:
+            if t%100 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
                 if accurate:
-                    energy_save = self.accurate_energy().tolist(), #self.markov_chain()[0].tolist()
-                    file.write(f'{t} {energy_save[0]}\n')
-                    print(*energy_save)
+                    energy = self.accurate_energy().tolist()
                 else:
-                    energy_save = self.markov_chain()[0]
-                    file.write(f'{t} {energy_save}\n')
-                    print(energy_save)
+                    energy = self.markov_chain()[0]
+                file.write(f'{t} {energy}\n')
+                print(energy)
                 file.flush()
+                self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')
                 self.__pre_itebd_done_restore()
             t += 1
-        self.__itebd_done()
-        if accurate:
-            energy_save = self.accurate_energy()
-        else:
-            energy_save = self.markov_chain()[0]
 
     def __itebd_once_h(self, base):
         n, m = self.size
@@ -344,7 +354,7 @@ class SquareLattice(list):
                 big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'])
                 thisD = min(self.D,len(s))
-                self.env_h[i][j] = s[:thisD]
+                self.env_v[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
                 self[i+1][j] = v[:thisD, :, :]\
@@ -360,14 +370,6 @@ class SquareLattice(list):
                     .tensor_multiple(1/self.env_h[i+1][j-1], 'l', restrict_mode=False)\
                     .tensor_multiple(1/self.env_v[i+1][j], 'd', restrict_mode=False)\
                     .tensor_multiple(1/self.env_h[i+1][j], 'r', restrict_mode=False)
-
-
-    def __itebd_done(self):
-        n, m = self.size
-        self.__pre_itebd_done()
-        self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        self.save()
 
     def __pre_itebd_done(self):
         n, m = self.size

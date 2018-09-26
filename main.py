@@ -22,6 +22,6 @@ if args.continued and not args.load_from:
 lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov_chain_length, args.load_from, args.save_prefix)
 
 #if not args.continued:
-lattice.itebd(0.01,True)
+#lattice.itebd(False)
 
-#lattice.grad_descent()
+lattice.grad_descent()
