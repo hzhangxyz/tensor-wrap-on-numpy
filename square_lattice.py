@@ -121,7 +121,7 @@ class SquareLattice(list):
         else:
             prepare = np.load(load_from)
             print(f'{load_from} loaded')
-            super().__init__([[self.__check_shape(np.tensor(prepare[f'node'][i][j], legs=prepare[f'legs'][i][j]), i, j)
+            super().__init__([[self.__check_shape(np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']), i, j)
                                for j in range(m)] for i in range(n)])  # random init
             self.prepare = prepare
         # 载入lattice信息
@@ -180,8 +180,10 @@ class SquareLattice(list):
     def save(self, **prepare):
         # prepare 里需要有name
         n, m = self.size
-        prepare['node'] = [[self[i][j] for j in range(m)] for i in range(n)]
-        prepare['legs'] = [[self[i][j].legs for j in range(m)] for i in range(n)]
+        for i in range(n):
+            for j in range(m):
+                prepare[f'node_{i}_{j}'] = self[i][j]
+                prepare[f'legs_{i}_{j}'] = self[i][j].legs
         np.savez_compressed(f'{self.save_prefix}/{prepare["name"]}.npz', **prepare)
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
