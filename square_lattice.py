@@ -195,11 +195,11 @@ class SquareLattice(list):
                 for j in range(m):
                     tmp = self[i][j]
                     self[i][j] = mpi_comm.bcast(self[i][j], root=0)
-            self.spin.fresh()
             t += 1
 
     def markov_chain(self):
         n, m = self.size
+        self.spin.fresh()
         sum_E_s = np.tensor(0.)
         sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
@@ -260,9 +260,10 @@ class SquareLattice(list):
             if energy and t%1 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
-                file.write(f'{t} {self.accurate_energy()}\n')
+                energy_save = self.markov_chain()[0]
+                file.write(f'{t} {energy_save}\n')
                 file.flush()
-                print(self.markov_chain()[0])
+                print(energy_save)
                 #print(self.accurate_energy())
                 self.__pre_itebd_done_restore()
         if end:
@@ -369,7 +370,6 @@ class SquareLattice(list):
                     .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)\
                     .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
                     .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)
-        self.spin.fresh()
 
     def __pre_itebd_done_restore(self):
         n, m = self.size
