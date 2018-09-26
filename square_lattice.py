@@ -257,18 +257,13 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            """
-            for i in range(n):
-                for j in range(m):
-                    self[i][j] = self[i][j] + self[i][j] * (np.random.rand(*self[i][j].shape)-0.5)/(t+1)
-            """
             if energy and t%1 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
                 file.write(f'{t} {self.accurate_energy()}\n')
                 file.flush()
-                #print(self.markov_chain()[0])
-                print(self.accurate_energy())
+                print(self.markov_chain()[0])
+                #print(self.accurate_energy())
                 self.__pre_itebd_done_restore()
         if end:
             self.__itebd_done()
@@ -304,6 +299,8 @@ class SquareLattice(list):
                     .tensor_contract(tmp_left, ['l'], ['r'], {'P1': 'p'})
                 self[i][j+1] = v[:thisD, :, :]\
                     .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
+                legs = self[i][j+1].legs
+                self[i][j+1] = self[i][j+1].tensor_transpose([*legs[1],*legs[0],*legs[2:]])
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
@@ -343,6 +340,8 @@ class SquareLattice(list):
                     .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
                 self[i+1][j] = v[:thisD, :, :]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
+                legs = self[i+1][j].legs
+                self[i+1][j] = self[i+1][j].tensor_transpose([*legs[1],*legs[0],*legs[2:]])
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
@@ -359,9 +358,6 @@ class SquareLattice(list):
         self.__pre_itebd_done()
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        for i in range(n):
-            for j in range(m):
-                assert self[i][j].legs[0] == 'p', "lattice need to translate"
         self.save()
 
     def __pre_itebd_done(self):
