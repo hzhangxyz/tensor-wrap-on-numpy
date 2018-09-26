@@ -198,7 +198,7 @@ class SquareLattice(list):
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
-            energy, grad = self.markov_chain()
+            energy, grad = self.markov_chain(print_info=True)
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
             if mpi_rank == 0:  # mpi
                 spin = np.array(gather_spin, dtype=int)
@@ -215,13 +215,15 @@ class SquareLattice(list):
                     self[i][j] = mpi_comm.bcast(self[i][j], root=0)
             t += 1
 
-    def markov_chain(self):
+    def markov_chain(self, print_info=False):
         n, m = self.size
         self.spin.fresh()
         sum_E_s = np.tensor(0.)
         sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         for markov_step in range(self.markov_chain_length):
+            if print_info:
+                print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
             E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
             sum_E_s += E_s
             for i in range(n):
@@ -273,18 +275,20 @@ class SquareLattice(list):
         file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
         while True:
+            print('simple update', t, end='\r')
             self.__itebd_once_h(0)
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
             if t % self.step_print == 0:
+                print('calculating energy...', end='\r')
                 self.__pre_itebd_done()
-                print('itebd', t, end=' ')
+                print(t, end=' ')
                 if accurate:
                     energy = self.accurate_energy().tolist()
                 else:
                     energy = self.markov_chain()[0]
-                file.write(f'{t} {energy}\n')
+                file.write(f'{t} energy={energy}\n')
                 print(energy)
                 file.flush()
                 self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')

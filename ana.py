@@ -12,7 +12,7 @@ while os.path.exists(f'{name}/load_from'):
     name, index = os.path.split(os.path.realpath(f'{name}/load_from'))
     index = int(index[:-4])
     print(f'{name}/log')
-    tmp = np.loadtxt(f'{name}/log')
+    tmp = np.loadtxt(f'{name}/SU.log')
     data.append(tmp[:index])
 
 if len(data)==0:
@@ -28,11 +28,11 @@ fig = plt.figure()
 fig.canvas.mpl_connect('close_event', handle_close)
 ax = fig.add_subplot(111)
 #ax.axis([0, len(data), -0.6, 0.5])
-now_data = np.loadtxt(f'{first_name}/log')[:,1]
+now_data = np.loadtxt(f'{first_name}/SU.log')[:,1]
 line, = ax.plot([*data,*now_data])
 base_len = len(now_data)
 while True:
-    now_data = np.loadtxt(f'{first_name}/log')[:,1]
+    now_data = np.loadtxt(f'{first_name}/SU.log')[:,1]
     delta = len(now_data) - base_len
     line.set_ydata([*data[delta:],*now_data])
     plt.pause(1)
