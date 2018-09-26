@@ -100,17 +100,21 @@ class tensor(ndarray):
         legs_dict2 = {} if legs_dict2 is None else legs_dict2
         order1 = []
         order2 = []
+        correct_legs1 = []
+        correct_legs2 = []
         for i, j in zip(legs1, legs2):
             if i in tensor1.legs and j in tensor2.legs:
                 order1.append(tensor1.legs.index(str(i)))
                 order2.append(tensor2.legs.index(str(j)))
+                correct_legs1.append(str(i))
+                correct_legs2.append(str(j))
             else:
                 if restrict_mode:
                     raise Exception("leg not match contract")
         legs = [j if j not in legs_dict1 else legs_dict1[j]
-                for j in tensor1.legs if j not in legs1] +\
+                for j in tensor1.legs if j not in correct_legs1] +\
             [j if j not in legs_dict2 else legs_dict2[j]
-             for j in tensor2.legs if j not in legs2]
+             for j in tensor2.legs if j not in correct_legs2]
         res = tensordot(tensor1, tensor2, [order1, order2])
         return self.__class__(res, legs=legs)
 
@@ -151,6 +155,8 @@ class tensor(ndarray):
         size2 = prod(transposed.shape[len(legs1):], dtype=int)
         tensor1, env, tensor2 = linalg.svd(transposed.reshape(
             [size1, size2]), *args, **kw)
+        assert tensor1.shape[:-1] == size1
+        assert tensor2.shape[1:] == size2
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
         tensor2 = tensor2.reshape([tensor2.size//size2, *transposed.shape[len(legs1):]])
         if not isinstance(new_legs, list):
@@ -176,6 +182,8 @@ class tensor(ndarray):
         size2 = prod(transposed.shape[len(legs1):], dtype=int)
         tensor1, tensor2 = linalg.qr(transposed.reshape(
             [size1, size2]), *args, **kw)
+        assert tensor1.shape[:-1] == size1
+        assert tensor2.shape[1:] == size2
         tensor1 = tensor1.reshape([*transposed.shape[:len(legs1)], tensor1.size//size1])
         tensor2 = tensor2.reshape([tensor2.size//size2, *transposed.shape[len(legs1):]])
         if not isinstance(new_legs, list):
