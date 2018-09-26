@@ -15,7 +15,7 @@ parser.add_argument('-l', '--step-size', dest='step_size', required=True, type=f
 parser.add_argument('-m', '--markov', dest='markov', required=True, type=int, help="markov chain length")
 parser.add_argument('-f', '--load-from', dest='load_from', help="load from file")
 parser.add_argument('-p', '--save-prefix', dest='save_prefix', default='run', help="prefix for saving data")
-parser.add_argument('-e', '--step-print', dest='print_step', type=int, help="how many step print once in SU")
+parser.add_argument('-e', '--step-print', dest='step_print', type=int, help="how many step print once in SU")
 args = parser.parse_args()
 
 if args.continued and args.load_from != None:
@@ -27,9 +27,10 @@ if args.update and args.print_step == None:
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
 
-lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov, args.load_from, args.save_prefix)
 
 if args.update:
+    lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov, args.load_from, args.save_prefix, args.step_print)
     lattice.itebd()
 else:
+    lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov, args.load_from, args.save_prefix)
     lattice.grad_descent()

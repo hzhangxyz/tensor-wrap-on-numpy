@@ -99,7 +99,7 @@ class SquareLattice(list):
         assert input.tensor_transpose(['p', *legs]).shape == (2, *[self.D for i in legs]), 'input save data not match shape'
         return input
 
-    def __new__(cls, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
+    def __new__(cls, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         obj = super().__new__(SquareLattice)
         obj.size = n, m
         obj.D = D
@@ -111,7 +111,7 @@ class SquareLattice(list):
 
         return obj
 
-    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
+    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         if self.load_from == None:
             if mpi_rank == 0:
                 tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
@@ -138,6 +138,8 @@ class SquareLattice(list):
         self.Identity = np.tensor(
             np.identity(4)
             .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
+
+        self.step_print=step_print
         # 保存参数
 
         if self.load_from == None:
@@ -274,7 +276,7 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if t%100 == 0:
+            if t%self.step_print == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
                 if accurate:
