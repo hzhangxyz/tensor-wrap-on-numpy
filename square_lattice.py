@@ -122,7 +122,7 @@ class SquareLattice(list):
             prepare = np.load(load_from)
             print(f'{load_from} loaded')
             super().__init__([[self.__check_shape(np.tensor(prepare[f'node'][i][j], legs=prepare[f'legs'][i][j]), i, j)
-                for j in range(m)] for i in range(n)])  # random init
+                               for j in range(m)] for i in range(n)])  # random init
             self.prepare = prepare
         # 载入lattice信息
 
@@ -139,7 +139,7 @@ class SquareLattice(list):
             np.identity(4)
             .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
 
-        self.step_print=step_print
+        self.step_print = step_print
         # 保存参数
 
         if self.load_from == None:
@@ -176,7 +176,6 @@ class SquareLattice(list):
                 os.remove(f'{split_name[0]}/last')
             os.symlink(split_name[1], f'{split_name[0]}/last')
         # 文件记录
-
 
     def save(self, **prepare):
         # prepare 里需要有name
@@ -251,23 +250,23 @@ class SquareLattice(list):
         psi = np.tensor(1.)
         for i in range(n):
             for j in range(m):
-                psi = psi.tensor_contract(self[i][j],['r',f'd{j}'],['l','u'],{},{'d':f'd{j}','p':f'p_{i}_{j}'},restrict_mode=False)
+                psi = psi.tensor_contract(self[i][j], ['r', f'd{j}'], ['l', 'u'], {}, {'d': f'd{j}', 'p': f'p_{i}_{j}'}, restrict_mode=False)
         Hpsi = psi*0
         for i in range(n):
             for j in range(m-1):
                 Hpsi += psi.tensor_contract(self.Hamiltonian,
-                        [f'p_{i}_{j}',f'p_{i}_{j+1}'],['p1','p2'],{},{'P1':f'p_{i}_{j}','P2':f'p_{i}_{j+1}'},restrict_mode=False)
+                                            [f'p_{i}_{j}', f'p_{i}_{j+1}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i}_{j+1}'}, restrict_mode=False)
         for i in range(n-1):
             for j in range(m):
                 Hpsi += psi.tensor_contract(self.Hamiltonian,
-                        [f'p_{i}_{j}',f'p_{i+1}_{j}'],['p1','p2'],{},{'P1':f'p_{i}_{j}','P2':f'p_{i+1}_{j}'},restrict_mode=False)
-        return psi.tensor_contract(Hpsi,psi.legs,psi.legs)/psi.tensor_contract(psi,psi.legs,psi.legs)/n/m
+                                            [f'p_{i}_{j}', f'p_{i+1}_{j}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i+1}_{j}'}, restrict_mode=False)
+        return psi.tensor_contract(Hpsi, psi.legs, psi.legs)/psi.tensor_contract(psi, psi.legs, psi.legs)/n/m
 
     def itebd(self, accurate=False):
         n, m = self.size
         if mpi_rank != 0:
             return
-        self.__pre_itebd_done_restore() # 载入后第一次前需要还原
+        self.__pre_itebd_done_restore()  # 载入后第一次前需要还原
         self.Evolution = self.Identity - self.step_size * self.Hamiltonian
         file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
@@ -276,9 +275,9 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if t%self.step_print == 0:
+            if t % self.step_print == 0:
                 self.__pre_itebd_done()
-                print('itebd',t,end=' ')
+                print('itebd', t, end=' ')
                 if accurate:
                     energy = self.accurate_energy().tolist()
                 else:
@@ -314,14 +313,14 @@ class SquareLattice(list):
                 big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'])
 
-                thisD = min(self.D,len(s))
+                thisD = min(self.D, len(s))
                 self.env_h[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_left, ['l'], ['r'], {'P1': 'p'})
                 self[i][j+1] = v[:thisD, :, :]\
                     .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
                 legs = self[i][j+1].legs
-                self[i][j+1] = self[i][j+1].tensor_transpose([*legs[1],*legs[0],*legs[2:]])
+                self[i][j+1] = self[i][j+1].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
@@ -332,9 +331,9 @@ class SquareLattice(list):
                     .tensor_multiple(1/self.env_h[i][j+1], 'r', restrict_mode=False)\
                     .tensor_multiple(1/self.env_v[i][j+1], 'd', restrict_mode=False)
 
-    def __itebd_once_v(self,base):
+    def __itebd_once_v(self, base):
         n, m = self.size
-        for i in range(base,n-1,2):
+        for i in range(base, n-1, 2):
             for j in range(m):
                 # i,i+1
                 self[i][j]\
@@ -355,14 +354,14 @@ class SquareLattice(list):
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'])
-                thisD = min(self.D,len(s))
+                thisD = min(self.D, len(s))
                 self.env_v[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
                     .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
                 self[i+1][j] = v[:thisD, :, :]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
                 legs = self[i+1][j].legs
-                self[i+1][j] = self[i+1][j].tensor_transpose([*legs[1],*legs[0],*legs[2:]])
+                self[i+1][j] = self[i+1][j].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
@@ -381,6 +380,7 @@ class SquareLattice(list):
                     .tensor_multiple(self.env_v[i][j], 'd', restrict_mode=False)\
                     .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)\
 
+
     def __pre_itebd_done_restore(self):
         n, m = self.size
         for i in range(n):
@@ -388,6 +388,8 @@ class SquareLattice(list):
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i][j], 'd', restrict_mode=False)\
                     .tensor_multiple(1/self.env_h[i][j], 'r', restrict_mode=False)\
+
+
 
 class SpinState(list):
 

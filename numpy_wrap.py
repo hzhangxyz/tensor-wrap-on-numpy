@@ -1,5 +1,6 @@
 from numpy import *
 
+
 class tensor(ndarray):
     def __new__(cls, input_array, legs=None):
         obj = asarray(input_array).view(cls)
@@ -125,7 +126,7 @@ class tensor(ndarray):
         else:
             shape = ones(self.ndim, dtype=int)
             shape[self.legs.index(leg)] = -1
-            self*=asarray(arr).reshape(shape)
+            self *= asarray(arr).reshape(shape)
         return self
 
     """
@@ -171,7 +172,7 @@ class tensor(ndarray):
     """
 
     def tensor_qr(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
-        assert set(legs1) | set(legs2) >= set(self.legs) or set(legs1) & set(legs2) == set() , "qr legs not correct"
+        assert set(legs1) | set(legs2) >= set(self.legs) or set(legs1) & set(legs2) == set(), "qr legs not correct"
         if restrict_mode:
             assert set(legs1) | set(legs2) == set(self.legs), "qr legs not correct"
         else:

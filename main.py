@@ -21,12 +21,11 @@ args = parser.parse_args()
 if args.continued and args.load_from != None:
     exit("conflict between --continue and --load-from")
 
-if args.update and args.print_step == None:
+if args.update and args.step_print == None:
     exit("--step-print needed when simple update")
 
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
-
 
 if args.update:
     lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov, args.load_from, args.save_prefix, args.step_print)
