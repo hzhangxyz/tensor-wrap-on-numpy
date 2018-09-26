@@ -280,7 +280,7 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if t % self.step_print == 0:
+            if t % self.step_print == 0 and t != 0:
                 print('calculating energy...', end='\r')
                 self.__pre_itebd_done()
                 print(t, end=' ')
