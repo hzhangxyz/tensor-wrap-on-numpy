@@ -125,7 +125,7 @@ class tensor(ndarray):
         else:
             shape = ones(self.ndim, dtype=int)
             shape[self.legs.index(leg)] = -1
-            self*=arr.reshape(shape)
+            self*=asarray(arr).reshape(shape)
         return self
 
     """
