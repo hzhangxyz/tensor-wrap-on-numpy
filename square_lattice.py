@@ -258,12 +258,12 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if t%100 == 0:
+            if t%1 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
                 if accurate:
-                    energy_save = self.accurate_energy().tolist(), self.markov_chain()[0].tolist()
-                    file.write(f'{t} {energy_save[0]} {energy_save[1]}\n')
+                    energy_save = self.accurate_energy().tolist(), #self.markov_chain()[0].tolist()
+                    file.write(f'{t} {energy_save[0]}\n')
                     print(*energy_save)
                 else:
                     energy_save = self.markov_chain()[0]
@@ -301,6 +301,7 @@ class SquareLattice(list):
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'])
+
                 thisD = min(self.D,len(s))
                 self.env_h[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
@@ -375,8 +376,6 @@ class SquareLattice(list):
                 self[i][j]\
                     .tensor_multiple(self.env_v[i][j], 'd', restrict_mode=False)\
                     .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)\
-                    .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
-                    .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)
 
     def __pre_itebd_done_restore(self):
         n, m = self.size
@@ -385,8 +384,6 @@ class SquareLattice(list):
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i][j], 'd', restrict_mode=False)\
                     .tensor_multiple(1/self.env_h[i][j], 'r', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)
 
 class SpinState(list):
 
