@@ -275,7 +275,7 @@ class SquareLattice(list):
         file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
         while True:
-            print('simple update', t, end='\r')
+            print('simple update', t % self.step_print, '/', self.step_print, end='\r')
             self.__itebd_once_h(0)
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
