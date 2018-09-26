@@ -246,30 +246,37 @@ class SquareLattice(list):
                         [f'p_{i}_{j}',f'p_{i+1}_{j}'],['p1','p2'],{},{'P1':f'p_{i}_{j}','P2':f'p_{i+1}_{j}'},restrict_mode=False)
         return psi.tensor_contract(Hpsi,psi.legs,psi.legs)/psi.tensor_contract(psi,psi.legs,psi.legs)/n/m
 
-    def itebd(self, step, delta, end=False, energy=True):
+    def itebd(self, delta, accurate=False):
         n, m = self.size
         if mpi_rank != 0:
             return
         self.Evolution = self.Identity - delta * self.Hamiltonian
         file = open(f'{self.save_prefix}/SU', 'w')
-        for t in range(step):
+        t = 0
+        while True:
             self.__itebd_once_h(0)
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
-            if energy and t%1 == 0:
+            if t%100 == 0:
                 self.__pre_itebd_done()
                 print('itebd',t,end=' ')
-                energy_save = self.markov_chain()[0]
-                file.write(f'{t} {energy_save}\n')
+                if accurate:
+                    energy_save = self.accurate_energy().tolist(), self.markov_chain()[0].tolist()
+                    file.write(f'{t} {energy_save[0]} {energy_save[1]}\n')
+                    print(*energy_save)
+                else:
+                    energy_save = self.markov_chain()[0]
+                    file.write(f'{t} {energy_save}\n')
+                    print(energy_save)
                 file.flush()
-                print(energy_save)
-                #print(self.accurate_energy())
                 self.__pre_itebd_done_restore()
-        if end:
-            self.__itebd_done()
-            if energy:
-                print('# itebd done',self.markov_chain()[0])
+            t += 1
+        self.__itebd_done()
+        if accurate:
+            energy_save = self.accurate_energy()
+        else:
+            energy_save = self.markov_chain()[0]
 
     def __itebd_once_h(self, base):
         n, m = self.size
