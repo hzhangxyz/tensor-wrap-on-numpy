@@ -5,20 +5,7 @@ import time
 import numpy as np
 from matplotlib import pyplot as plt
 
-first_name = name = "./run/last/"
-data = []
-index = None
-while os.path.exists(f'{name}/load_from'):
-    name, index = os.path.split(os.path.realpath(f'{name}/load_from'))
-    index = int(index[:-4])
-    print(f'{name}/log')
-    tmp = np.loadtxt(f'{name}/SU.log')
-    data.append(tmp[:index])
-
-if len(data)==0:
-    data = []
-else:
-    data = np.concatenate(data[::-1])[:,1]
+name = "./run/last/"
 
 def handle_close(evt):
     exit()
@@ -28,11 +15,10 @@ fig = plt.figure()
 fig.canvas.mpl_connect('close_event', handle_close)
 ax = fig.add_subplot(111)
 #ax.axis([0, len(data), -0.6, 0.5])
-now_data = np.loadtxt(f'{first_name}/SU.log')[:,1]
-line, = ax.plot([*data,*now_data])
-base_len = len(now_data)
+data = np.loadtxt(f'{name}/SU.log')[:,1]
+line, = ax.plot(data)
+base_len = len(data)
 while True:
-    now_data = np.loadtxt(f'{first_name}/SU.log')[:,1]
-    delta = len(now_data) - base_len
-    line.set_ydata([*data[delta:],*now_data])
+    data = np.loadtxt(f'{name}/SU.log')[:,1]
+    line.set_ydata(data[-base_len:])
     plt.pause(1)
