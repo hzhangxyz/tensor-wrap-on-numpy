@@ -317,7 +317,7 @@ class SquareLattice(list):
                 big = np.tensor_contract(r1, r2, ['r'], ['l'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'])
+                u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'], full_matrices=False)
 
                 thisD = min(self.D, len(s))
                 self.env_h[i][j] = s[:thisD]
@@ -359,7 +359,7 @@ class SquareLattice(list):
                 big = np.tensor_contract(r1, r2, ['d'], ['u'], {'p': 'p1'}, {'p': 'p2'})
                 big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'])
+                u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'], full_matrices=False)
                 thisD = min(self.D, len(s))
                 self.env_v[i][j] = s[:thisD]
                 self[i][j] = u[:, :, :thisD]\
