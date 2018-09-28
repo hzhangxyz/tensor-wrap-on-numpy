@@ -16,6 +16,7 @@ parser.add_argument('-m', '--markov', dest='markov', required=True, type=int, he
 parser.add_argument('-f', '--load-from', dest='load_from', help="load from file")
 parser.add_argument('-p', '--save-prefix', dest='save_prefix', default='run', help="prefix for saving data")
 parser.add_argument('-e', '--step-print', dest='step_print', type=int, help="how many step print once in SU")
+parser.add_argument('-a', '--accurate', dest='accurate', default=False, action="store_true", help="calculate accurate energy rather than markov")
 args = parser.parse_args()
 
 if args.continued and args.load_from != None:
@@ -24,12 +25,15 @@ if args.continued and args.load_from != None:
 if args.update and args.step_print == None:
     exit("--step-print needed when simple update")
 
+if not args.update and args.accurate:
+    exit("--accurate only work for simple update")
+
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
 
 if args.update:
     lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov, args.load_from, args.save_prefix, args.step_print)
-    lattice.itebd()
+    lattice.itebd(args.accurate)
 else:
     lattice = SL(args.n, args.m, args.D, args.D_c, args.scan_time, args.step_size, args.markov, args.load_from, args.save_prefix)
     lattice.grad_descent()
