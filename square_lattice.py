@@ -165,6 +165,7 @@ class SquareLattice(list):
 
         if mpi_rank == 0:
             self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
+            print(f"save_prefix={self.save_prefix}")
             os.makedirs(self.save_prefix, exist_ok=True)
             if self.load_from is not None:
                 os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
