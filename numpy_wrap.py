@@ -148,9 +148,8 @@ class tensor(ndarray):
         assert set(legs1) | set(legs2) >= set(self.legs) or set(legs1) & set(legs2) == set(), "svd legs not correct"
         if restrict_mode:
             assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
-        else:
-            legs1 = [i for i in legs1 if i in self.legs]
-            legs2 = [i for i in legs2 if i in self.legs]
+        legs1 = [i for i in self.legs if i in legs1]
+        legs2 = [i for i in self.legs if i in legs2]
         transposed = self.tensor_transpose([*legs1, *legs2])
         size1 = prod(transposed.shape[:len(legs1)], dtype=int)
         size2 = prod(transposed.shape[len(legs1):], dtype=int)
@@ -175,9 +174,8 @@ class tensor(ndarray):
         assert set(legs1) | set(legs2) >= set(self.legs) or set(legs1) & set(legs2) == set(), "qr legs not correct"
         if restrict_mode:
             assert set(legs1) | set(legs2) == set(self.legs), "qr legs not correct"
-        else:
-            legs1 = [i for i in legs1 if i in self.legs]
-            legs2 = [i for i in legs2 if i in self.legs]
+        legs1 = [i for i in self.legs if i in legs1]
+        legs2 = [i for i in self.legs if i in legs2]
         transposed = self.tensor_transpose([*legs1, *legs2])
         size1 = prod(transposed.shape[:len(legs1)], dtype=int)
         size2 = prod(transposed.shape[len(legs1):], dtype=int)
