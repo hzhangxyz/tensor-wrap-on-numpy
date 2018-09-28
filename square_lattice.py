@@ -286,6 +286,7 @@ class SquareLattice(list):
                     energy = self.accurate_energy().tolist()
                 else:
                     energy = self.markov_chain()[0]
+                print("\033[K", end='\r')
                 file.write(f'{t} {energy}\n')
                 print(t, energy)
                 file.flush()
