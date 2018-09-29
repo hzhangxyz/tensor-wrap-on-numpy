@@ -3,3 +3,5 @@ run
 .idea
 .coverage
 htmlcov
+*log
+log*
