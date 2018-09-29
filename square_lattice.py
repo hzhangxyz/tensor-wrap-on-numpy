@@ -216,7 +216,7 @@ class SquareLattice(list):
                     self[i][j] = mpi_comm.bcast(self[i][j], root=0)
             t += 1
 
-    def markov_chain(self):
+    def markov_chain(self, cal_grad=True):
         n, m = self.size
         self.spin.fresh()
         sum_E_s = np.tensor(0.)
@@ -224,22 +224,27 @@ class SquareLattice(list):
         Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
         for markov_step in range(self.markov_chain_length):
             print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
-            E_s, Delta_s = self.spin.cal_E_s_and_Delta_s()
+            E_s, Delta_s = self.spin.cal_E_s_and_Delta_s(cal_grad)
             sum_E_s += E_s
-            for i in range(n):
-                for j in range(m):
-                    sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
-                    Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
+            if cal_grad:
+                for i in range(n):
+                    for j in range(m):
+                        sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
+                        Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
             self.spin = self.spin.markov_chain_hop()
 
         sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
-        for i in range(n):
-            for j in range(m):
-                sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
-                Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
+        if cal_grad:
+            for i in range(n):
+                for j in range(m):
+                    sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
+                    Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
         if mpi_rank == 0:
-            Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -
-                     2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
+            if cal_grad:
+                Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -
+                         2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
+            else:
+                Grad = None
             Energy = sum_E_s/(self.markov_chain_length*mpi_size*n*m)
             return Energy, Grad
         else:
@@ -286,7 +291,7 @@ class SquareLattice(list):
                 if accurate:
                     energy = self.accurate_energy().tolist()
                 else:
-                    energy = self.markov_chain()[0]
+                    energy = self.markov_chain(cal_grad=False)[0]
                 print("\033[K", end='\r')
                 file.write(f'{t} {energy}\n')
                 print(t, energy)
@@ -445,7 +450,8 @@ class SpinState(list):
         self.flag_right_to_left = False
         self.w_s = None
 
-        self.res = None
+        self.energy = None
+        self.grad = None
 
     def __init__(self, lattice, spin_state=None):
         if spin_state is not None:
@@ -504,14 +510,18 @@ class SpinState(list):
 
         return res
 
-    def cal_E_s_and_Delta_s(self):
+    def cal_E_s_and_Delta_s(self, cal_grad=True):
         """
         E_s=\sum_{s'} W(s')/W(s) H_{ss'}
         第一部分:对角
         第二部分:交换
         """
-        if self.res is not None:
-            return self.res
+        if cal_grad:
+            if self.energy is not None and self.grad is not None:
+                return self.energy, self.grad
+        else:
+            if self.energy is not None:
+                return self.energy, None
         n, m = self.size
         self.__auxiliary()
         E_s_diag = 0.
@@ -541,11 +551,12 @@ class SpinState(list):
                     .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'}, restrict_mode=False)\
                     .tensor_contract(self.DownToUp[(i+1) % n][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'}, restrict_mode=False)
             # 计算 delta
-            for j in range(m):
-                Delta_s[i][j] = np.tensor_contract(
-                    np.tensor_contract(l[(j-1) % m], self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
-                    np.tensor_contract(r[(j+1) % m], self.DownToUp[(i+1) % n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
-                    ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False) / self.cal_w_s()
+            if cal_grad:
+                for j in range(m):
+                    Delta_s[i][j] = np.tensor_contract(
+                        np.tensor_contract(l[(j-1) % m], self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
+                        np.tensor_contract(r[(j+1) % m], self.DownToUp[(i+1) % n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
+                        ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False) / self.cal_w_s()
             # 计算Es
             for j in range(m-1):
                 if self[i][j] != self[i][j+1]:
@@ -587,8 +598,9 @@ class SpinState(list):
                         .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False) * 2 / self.cal_w_s()  # 哈密顿量
 
         E_s = E_s_diag + E_s_non_diag
-        self.res = 0.25*E_s, Delta_s
-        return self.res
+        self.energy = 0.25*E_s
+        self.grad = Delta_s
+        return self.energy, self.grad
 
     def __auxiliary(self):
         self.__auxiliary_up_to_down()
