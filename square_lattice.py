@@ -96,8 +96,10 @@ class SquareLattice(list):
             legs = legs.replace('l', '')
         if j == self.size[1]-1:
             legs = legs.replace('r', '')
-        assert input.tensor_transpose(['p', *legs]).shape == (2, *[self.D for i in legs]), 'input save data not match shape'
-        return input
+        to_add = input.tensor_transpose(['p', *legs])
+        output = np.tensor(np.zeros([2, *[self.D for i in legs]]), legs=['p', *legs])
+        output[tuple([slice(i) for i in to_add.shape])] += to_add
+        return output
 
     def __new__(cls, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         obj = super().__new__(SquareLattice)
