@@ -5,6 +5,7 @@ from builtins import bool, int, float, complex, object, str
 unicode = str
 from numpy import round, abs, max, min
 
+
 class tensor(ndarray):
     def __new__(cls, input_array, legs=None):
         obj = asarray(input_array).view(cls)
