@@ -1,6 +1,10 @@
 from numpy import *
 
 
+from builtins import bool, int, float, complex, object, str
+unicode = str
+from numpy import round, abs, max, min
+
 class tensor(ndarray):
     def __new__(cls, input_array, legs=None):
         obj = asarray(input_array).view(cls)
@@ -11,16 +15,16 @@ class tensor(ndarray):
         assert len(set(self.legs)) == len(self.legs), "repeated legs name"
 
     def __repr__(self):
-        return f'{super().__repr__()}\nlegs({self.legs})'
+        return f'{super(tensor, self).__repr__()}\nlegs({self.legs})'
 
     def __reduce__(self):
-        pickled_state = super().__reduce__()
+        pickled_state = super(tensor, self).__reduce__()
         new_state = pickled_state[2] + (self.legs,)
         return (pickled_state[0], pickled_state[1], new_state)
 
     def __setstate__(self, state):
         self.legs = state[-1]
-        super().__setstate__(state[0:-1])
+        super(tensor, self).__setstate__(state[0:-1])
 
     def __array_finalize__(self, obj):
         if obj is None:
@@ -30,7 +34,7 @@ class tensor(ndarray):
         return
 
     def __getitem__(self, args):
-        res = super().__getitem__(args)
+        res = super(tensor, self).__getitem__(args)
         if not isinstance(res, ndarray):
             return res
         if not isinstance(args, tuple):
@@ -42,36 +46,36 @@ class tensor(ndarray):
 
     def __add__(self, args):
         if isinstance(args, type(self)):
-            return super().__add__(args.tensor_transpose(self.legs))
+            return super(tensor, self).__add__(args.tensor_transpose(self.legs))
         else:
-            return super().__add__(args)
+            return super(tensor, self).__add__(args)
 
     def __iadd__(self, args):
         if isinstance(args, type(self)):
-            return super().__iadd__(args.tensor_transpose(self.legs))
+            return super(tensor, self).__iadd__(args.tensor_transpose(self.legs))
         else:
-            return super().__iadd__(args)
+            return super(tensor, self).__iadd__(args)
 
     def __sub__(self, args):
         if isinstance(args, type(self)):
-            return super().__sub__(args.tensor_transpose(self.legs))
+            return super(tensor, self).__sub__(args.tensor_transpose(self.legs))
         else:
-            return super().__sub__(args)
+            return super(tensor, self).__sub__(args)
 
     def __isub__(self, args):
         if isinstance(args, type(self)):
-            return super().__isub__(args.tensor_transpose(self.legs))
+            return super(tensor, self).__isub__(args.tensor_transpose(self.legs))
         else:
-            return super().__isub__(args)
+            return super(tensor, self).__isub__(args)
 
     def __mul__(self, args):
         if isinstance(args, type(self)):
             if self.ndim == 0:
                 return args.__mul__(self)
             else:
-                return super().__mul__(args)
+                return super(tensor, self).__mul__(args)
         else:
-            return super().__mul__(args)
+            return super(tensor, self).__mul__(args)
 
     def set_legs(self, legs):
         self.legs = [str(legs[i]) for i in range(self.ndim)]
