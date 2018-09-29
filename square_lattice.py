@@ -290,6 +290,10 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
             self.__itebd_once_v(1)
+            self.__itebd_once_v(1)
+            self.__itebd_once_v(0)
+            self.__itebd_once_h(1)
+            self.__itebd_once_h(0)
             if t % self.step_print == 0 and t != 0:
                 self.__pre_itebd_done()
                 print("\033[K", end='\r')
