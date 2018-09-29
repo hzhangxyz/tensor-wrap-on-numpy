@@ -153,16 +153,19 @@ class SquareLattice(list):
                 self.spin = SpinState(self, spin_state=None)
         # 准备spin state
 
-        if self.load_from == None or "env_v" not in self.load_from or "env_h" not in self.load_from:
-            self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-            self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+        self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+        self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
+        for i in range(n):
+            self.env_h[i][m-1] = np.array(1)
+        for j in range(m):
+            self.env_v[n-1][j] = np.array(1)
+        if self.load_from != None and "env_v" in self.prepare and "env_h" in self.prepare:
             for i in range(n):
-                self.env_h[i][m-1] = np.array(1)
-            for j in range(m):
-                self.env_v[n-1][j] = np.array(1)
-        else:
-            self.env_v = self.prepare["env_v"]
-            self.env_h = self.prepare["env_h"]
+                for j in range(m):
+                    if i != n-1:
+                        self.env_v[i][j][:len(self.prepare["env_v"][i][j])] = self.prepare["env_v"][i][j]
+                    if j != m-1:
+                        self.env_h[i][j][:len(self.prepare["env_h"][i][j])] = self.prepare["env_h"][i][j]
         # 准备su用的环境
 
         if mpi_rank == 0:
