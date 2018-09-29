@@ -594,6 +594,16 @@ class SpinState(list):
                     .tensor_contract(self.LeftToRight[i][(j-1) % m], ['u1'], ['d'], {}, {'u': 'u1'}, restrict_mode=False)\
                     .tensor_contract(self.lat[i][j], ['u2', 'r'], ['d', 'l'], {}, {'u': 'u2'}, restrict_mode=False)\
                     .tensor_contract(self.RightToLeft[i][(j+1) % m], ['u3', 'r'], ['d', 'l'], {}, {'u': 'u3'}, restrict_mode=False)
+            """
+            # 计算 delta
+            if cal_grad:
+                for i in range(n):
+                    tmp = np.tensor_contract(
+                        np.tensor_contract(u[(i-1) % n], self.LeftToRight[i][(j-1)%m], ['d1'], ['u'], {'d2': 'u'}, {'d': 'd1', 'r': 'l'}, restrict_mode=False),
+                        np.tensor_contract(d[(i+1) % n], self.RightToLeft[i][(j+1)%m], ['u3'], ['d'], {'u2': 'd'}, {'u': 'u3', 'l': 'r'}, restrict_mode=False),
+                        ['d1', 'd3'], ['u1', 'u3'], restrict_mode=False) / self.cal_w_s()
+                    print(np.max(abs((tmp - Delta_s[i][j])/Delta_s[i][j])))
+            """
             # 计算Es
             for i in range(n-1):
                 if self[i][j] != self[i+1][j]:
