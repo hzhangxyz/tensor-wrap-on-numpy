@@ -146,6 +146,7 @@ class SpinState():
             self.w_s = self.w_s\
                 .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
                 .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+        self.w_s = self.w_s.data
         assert self.w_s != 0., "w_s == 0"
 
     def cal_E_s_and_Delta_s(self):
@@ -249,7 +250,7 @@ class SpinState():
         with tf.name_scope('res'):
             for i in range(n):
                 for j in range(m):
-                    Delta_s[i][j] = Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m), name=f'grad_{i}_{j}')
+                    Delta_s[i][j] = Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m), name=f'grad_{i}_{j}').data
             E_s = sum(E_s_non_diag) + E_s_diag
             self.energy = tf.multiply(E_s, 0.25, name='e_s')
             self.grad = Delta_s
