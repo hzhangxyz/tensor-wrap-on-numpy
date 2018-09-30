@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from spin_state import SpinState
+from tnsp.spin_state import SpinState
 
 L = 4
 D = 5

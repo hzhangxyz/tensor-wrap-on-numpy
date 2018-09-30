@@ -3,8 +3,8 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-from tensor_node import Node
-from spin_state import SpinState
+from .tensor_node import Node
+from .spin_state import SpinState
 
 
 def get_lattice_node_leg(i, j, n, m):
