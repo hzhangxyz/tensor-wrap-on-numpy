@@ -63,11 +63,11 @@ class Node():
         self.check_legs()
         return self
 
-    def transpose(self, legs):
+    def tensor_transpose(self, legs):
         res = tf.transpose(self.data, [self.legs.index(i) for i in legs])
         return Node(res, legs)
 
-    def contract(self, tensor, legs1, legs2, legs_dict1={}, legs_dict2={}, restrict_mode=True):
+    def tensor_contract(self, tensor, legs1, legs2, legs_dict1={}, legs_dict2={}, restrict_mode=True):
         tensor1 = self
         tensor2 = tensor
         order1 = []
@@ -90,7 +90,7 @@ class Node():
         res = tf.tensordot(tensor1.data, tensor2.data, [order1, order2])
         return Node(res, legs)
 
-    def multiple(self, arr, leg, restrict_mode=True):
+    def tensor_multiple(self, arr, leg, restrict_mode=True):
         if leg not in self.legs:
             if restrict_mode:
                 raise Exception("leg not match in multiple")
@@ -100,7 +100,7 @@ class Node():
             self.data *= tf.reshape(arr, shape)
         return self
 
-    def svd(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
+    def tensor_svd(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
         assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), "svd legs not correct"
         if restrict_mode:
             assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
@@ -119,7 +119,7 @@ class Node():
             new_legs = [new_legs, new_legs]
         return Node(tensor1, [*legs1, new_legs[0]]), env, Node(tensor2, [*legs2, new_legs[1]])
 
-    def qr(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
+    def tensor_qr(self, legs1, legs2, new_legs, restrict_mode=True, *args, **kw):
         assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), "qr legs not correct"
         if restrict_mode:
             assert set(legs1) | set(legs2) == set(self.legs), "qr legs not correct"

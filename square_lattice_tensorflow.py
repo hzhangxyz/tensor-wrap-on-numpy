@@ -2,12 +2,8 @@ import time
 import os
 import sys
 import numpy_wrap as np
-from mpi4py import MPI
-
-mpi_comm = MPI.COMM_WORLD
-mpi_rank = mpi_comm.Get_rank()
-mpi_size = mpi_comm.Get_size()
-print("mpi info:", mpi_rank, "/", mpi_size)
+import tensorflow as tf
+from tensor import Node
 
 
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
@@ -115,11 +111,8 @@ class SquareLattice(list):
 
     def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         if self.load_from == None:
-            if mpi_rank == 0:
-                tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
-            else:
-                tmp = None
-            super().__init__(mpi_comm.bcast(tmp, root=0))  # random init
+            tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
+            super().__init__(tmp)  # random init
         else:
             prepare = np.load(load_from)
             print(f'{load_from} loaded')
@@ -147,8 +140,8 @@ class SquareLattice(list):
         if self.load_from == None:
             self.spin = SpinState(self, spin_state=None)
         else:
-            if f'spin' in prepare and len(prepare['spin']) > mpi_rank:
-                self.spin = SpinState(self, spin_state=prepare['spin'][mpi_rank])
+            if f'spin' in prepare:
+                self.spin = SpinState(self, spin_state=prepare['spin'])
             else:
                 self.spin = SpinState(self, spin_state=None)
         # 准备spin state
@@ -168,19 +161,18 @@ class SquareLattice(list):
                         self.env_h[i][j][:len(self.prepare["env_h"][i][j])] = self.prepare["env_h"][i][j]
         # 准备su用的环境
 
-        if mpi_rank == 0:
-            self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
-            print(f"save_prefix={self.save_prefix}")
-            os.makedirs(self.save_prefix, exist_ok=True)
-            if self.load_from is not None:
-                os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
-            file = open(f'{self.save_prefix}/parameter', 'w')
-            file.write(str(sys.argv))
-            file.close()
-            split_name = os.path.split(self.save_prefix)
-            if os.path.exists(f'{split_name[0]}/last'):
-                os.remove(f'{split_name[0]}/last')
-            os.symlink(split_name[1], f'{split_name[0]}/last')
+        self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
+        print(f"save_prefix={self.save_prefix}")
+        os.makedirs(self.save_prefix, exist_ok=True)
+        if self.load_from is not None:
+            os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
+        file = open(f'{self.save_prefix}/parameter', 'w')
+        file.write(str(sys.argv))
+        file.close()
+        split_name = os.path.split(self.save_prefix)
+        if os.path.exists(f'{split_name[0]}/last'):
+            os.remove(f'{split_name[0]}/last')
+        os.symlink(split_name[1], f'{split_name[0]}/last')
         # 文件记录
 
     def save(self, **prepare):
@@ -201,24 +193,16 @@ class SquareLattice(list):
     def grad_descent(self):
         n, m = self.size
         t = 0
-        if mpi_rank == 0:
-            file = open(f'{self.save_prefix}/GM.log', 'w')
+        file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
             energy, grad = self.markov_chain()
-            gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
-            if mpi_rank == 0:  # mpi
-                spin = np.array(gather_spin, dtype=int)
-                for i in range(n):
-                    for j in range(m):
-                        self[i][j] -= self.step_size*grad[i][j]
-                self.save(energy=energy, name=f'GM.{t}', spin=spin)
-                file.write(f'{t} {energy}\n')
-                file.flush()
-                print(t, energy)
             for i in range(n):
                 for j in range(m):
-                    tmp = self[i][j]
-                    self[i][j] = mpi_comm.bcast(self[i][j], root=0)
+                    self[i][j] -= self.step_size*grad[i][j]
+            self.save(energy=energy, name=f'GM.{t}', spin=self.spin)
+            file.write(f'{t} {energy}\n')
+            file.flush()
+            print(t, energy)
             t += 1
 
     def markov_chain(self, cal_grad=True):
@@ -238,22 +222,13 @@ class SquareLattice(list):
                         Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
             self.spin = self.spin.markov_chain_hop()
 
-        sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
         if cal_grad:
-            for i in range(n):
-                for j in range(m):
-                    sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
-                    Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
-        if mpi_rank == 0:
-            if cal_grad:
-                Grad = [[2.*Prod[i][j]/(self.markov_chain_length*mpi_size) -
-                         2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length*mpi_size)**2 for j in range(m)] for i in range(n)]
-            else:
-                Grad = None
-            Energy = sum_E_s/(self.markov_chain_length*mpi_size*n*m)
-            return Energy, Grad
+            Grad = [[2.*Prod[i][j]/(self.markov_chain_length) -
+                     2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length)**2 for j in range(m)] for i in range(n)]
         else:
-            return None, None
+            Grad = None
+        Energy = sum_E_s/(self.markov_chain_length*n*m)
+        return Energy, Grad
 
     def pre_heating(self, step):
         for markov_step in range(step):
@@ -278,8 +253,6 @@ class SquareLattice(list):
 
     def itebd(self, accurate=False):
         n, m = self.size
-        if mpi_rank != 0:
-            return
         self.__pre_itebd_done_restore()  # 载入后第一次前需要还原
         self.Evolution = self.Identity - self.step_size * self.Hamiltonian
         file = open(f'{self.save_prefix}/SU.log', 'w')
