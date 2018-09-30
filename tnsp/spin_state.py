@@ -156,13 +156,13 @@ class SpinState():
         第二部分:交换
         """
         n, m = self.size
-        E_s_diag = 0.
+        E_s_diag = tf.zeros([], dtype=self.TYPE)
         for i in range(n):
             for j in range(m):
                 if j != m-1:
-                    E_s_diag += 1 if self.state[i][j] == self.state[i][j+1] else -1  # 哈密顿量
+                    E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i][j+1]), lambda :1., lambda :-1.)
                 if i != n-1:
-                    E_s_diag += 1 if self.state[i][j] == self.state[i+1][j] else -1
+                    E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda :1., lambda :-1.)
         E_s_non_diag = []  # 为相邻两个交换后的w(s)之和
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
         # 横向j j+1
@@ -195,15 +195,17 @@ class SpinState():
                 # 计算Es
                 with tf.name_scope('H_ss'):
                     for j in range(m-1):
-                        if self.state[i][j] != self.state[i][j+1]:
-                            E_s_non_diag.append((l[(j-1) % m]\
-                                .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                                .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                                .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data * 2 / self.w_s)  # 哈密顿量
+                        E_s_non_diag.append(
+                            tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]),
+                                lambda :(l[(j-1) % m]\
+                                    .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                                    .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                                    .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
+                                    .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                                    .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                                    .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
+                                    .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data * 2. / self.w_s,
+                                lambda :tf.zeros([], dtype=self.TYPE)))
         # 纵向i i+1
         for j in range(m):
             with tf.name_scope(f'mpo_v_{j}'):
@@ -223,28 +225,20 @@ class SpinState():
                             .tensor_contract(self.LeftToRight[i][(j-1) % m], ['u1'], ['d'], {}, {'u': 'u1'}, restrict_mode=False)\
                             .tensor_contract(self.lat[i][j], ['u2', 'r'], ['d', 'l'], {}, {'u': 'u2'}, restrict_mode=False)\
                             .tensor_contract(self.RightToLeft[i][(j+1) % m], ['u3', 'r'], ['d', 'l'], {}, {'u': 'u3'}, restrict_mode=False)
-                """
-                # 计算 delta
-                if cal_grad:
-                    for i in range(n):
-                        tmp = np.tensor_contract(
-                            np.tensor_contract(u[(i-1) % n], self.LeftToRight[i][(j-1)%m], ['d1'], ['u'], {'d2': 'u'}, {'d': 'd1', 'r': 'l'}, restrict_mode=False),
-                            np.tensor_contract(d[(i+1) % n], self.RightToLeft[i][(j+1)%m], ['u3'], ['d'], {'u2': 'd'}, {'u': 'u3', 'l': 'r'}, restrict_mode=False),
-                            ['d1', 'd3'], ['u1', 'u3'], restrict_mode=False) / self.cal_w_s()
-                        print(np.max(abs((tmp - Delta_s[i][j])/Delta_s[i][j])))
-                """
                 # 计算Es
                 with tf.name_scope('H_ss'):
                     for i in range(n-1):
-                        if self.state[i][j] != self.state[i+1][j]:
-                            E_s_non_diag.append((u[(i-1) % n]\
-                                .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
-                                .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
-                                .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data * 2 / self.w_s)  # 哈密顿量
+                        E_s_non_diag.append(
+                            tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]),
+                                lambda :(u[(i-1) % n]\
+                                    .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
+                                    .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
+                                    .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
+                                    .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)\
+                                    .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
+                                    .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
+                                    .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data * 2. / self.w_s,  # 哈密顿量
+                                lambda :tf.zeros([], dtype=self.TYPE)))
 
         #E_s = E_s_diag + E_s_non_diag
         with tf.name_scope('res'):
@@ -253,6 +247,7 @@ class SpinState():
                     Delta_s[i][j] = tf.div(Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m)).data, self.w_s, name=f'grad_{i}_{j}')
             E_s = sum(E_s_non_diag) + E_s_diag
             self.energy = tf.multiply(E_s, 0.25, name='e_s')
+            self.energy = tf.Print(self.energy, ["WTF"])
             self.grad = Delta_s
 
     def __auxiliary(self):

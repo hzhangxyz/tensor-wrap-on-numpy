@@ -68,7 +68,8 @@ class SquareLattice():
         self.step_print = step_print
         # 保存参数
 
-        self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=tf.float32)
+        self.TYPE=tf.float32
+        self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=self.TYPE)
 
         def default_spin():
             return np.array([[1 if (i+j)%2==0 else 0 for j in range(m)] for i in range(n)])
@@ -145,7 +146,7 @@ class SquareLattice():
 
     def markov_chain(self):
         n, m = self.size
-        sum_E_s = np.zeros([])
+        sum_E_s = np.zeros([], self.TYPE)
         sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         for markov_step in range(self.markov_chain_length):
