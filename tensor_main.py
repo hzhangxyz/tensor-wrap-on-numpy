@@ -4,7 +4,7 @@ from spin_state import SpinState
 
 ss = SpinState([3,3],2,3,1)
 sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
-tf.summary.FileWriter('./train', sess.graph)
+tf.summary.FileWriter('./run', sess.graph)
 def __create_node(i, j, n, m, D):
     legs = 'lrud'
     if i == 0:
