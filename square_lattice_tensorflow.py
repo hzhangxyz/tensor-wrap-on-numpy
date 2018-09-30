@@ -67,6 +67,7 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
 
     return res
 
+
 def get_lattice_node_leg(i, j, n, m):
     legs = 'lrud'
     if i == 0:
@@ -78,6 +79,7 @@ def get_lattice_node_leg(i, j, n, m):
     if j == m-1:
         legs = legs.replace('r', '')
     return legs
+
 
 class SquareLattice(list):
 
@@ -413,6 +415,7 @@ class SpinState():
         self.size = size
         self.D = D
         self.TYPE = tf.float32
+
         def gen_place_holder(i, j):
             legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
             return Node(tf.placeholder(self.TYPE, shape=[self.D for i in legs]), legs)
@@ -530,7 +533,7 @@ class SpinState():
                         .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False) * 2 / self.cal_w_s()  # 哈密顿量
 
         E_s = E_s_diag + E_s_non_diag
-        self.energy = 0.25*E_s
+        self.energy = E_s * 0.25
         self.grad = Delta_s
         return self.energy, self.grad
 

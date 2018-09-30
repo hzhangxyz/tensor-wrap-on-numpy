@@ -15,6 +15,7 @@ class Node():
     - svd
     - qr
     """
+
     def __init__(self, data, legs):
         self.data = tf.convert_to_tensor(data)
         self.legs = [legs[i] for i in range(len(data.get_shape()))]
@@ -38,8 +39,12 @@ class Node():
         return Node(res, res_legs)
 
     def __add__(self, arg):
-        arg = arg.data.tensor_transpose(self.legs)
+        arg = arg.tensor_transpose(self.legs).data
         return Node(self.data + arg, self.legs)
+
+    def __sub__(self, arg):
+        arg = arg.tensor_transpose(self.legs).data
+        return Node(self.data - arg, self.legs)
 
     def __neg__(self):
         return Node(-self.data, self.legs)
@@ -113,11 +118,11 @@ class Node():
             assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
         legs1 = [i for i in self.legs if i in legs1]
         legs2 = [i for i in self.legs if i in legs2]
-        transposed = self.transpose([*legs1, *legs2])
+        transposed = self.tensor_transpose([*legs1, *legs2])
         size1 = np.prod(transposed.shape[:len(legs1)], dtype=int)
         size2 = np.prod(transposed.shape[len(legs1):], dtype=int)
         tensor1, env, tensor2 = tf.svd(tf.reshape(transposed.data,
-            [size1, size2]), *args, **kw)
+                                                  [size1, size2]), *args, **kw)
         assert tensor1.get_shape()[0] == size1
         assert tensor2.get_shape()[0] == size2
         tensor1 = tf.reshape(tensor1, [*transposed.get_shape[:len(legs1)], -1])
@@ -132,11 +137,11 @@ class Node():
             assert set(legs1) | set(legs2) == set(self.legs), "qr legs not correct"
         legs1 = [i for i in self.legs if i in legs1]
         legs2 = [i for i in self.legs if i in legs2]
-        transposed = self.transpose([*legs1, *legs2])
+        transposed = self.tensor_transpose([*legs1, *legs2])
         size1 = np.prod(transposed.shape[:len(legs1)], dtype=int)
         size2 = np.prod(transposed.shape[len(legs1):], dtype=int)
         tensor1, tensor2 = tf.qr(tf.reshape(transposed.data,
-            [size1, size2]), *args, **kw)
+                                            [size1, size2]), *args, **kw)
         assert tensor1.get_shape()[0] == size1
         assert tensor2.get_shape()[0] == size2
         tensor1 = tf.reshape(tensor1, [*transposed.get_shape[:len(legs1)], -1])
@@ -144,4 +149,3 @@ class Node():
         if not isinstance(new_legs, list):
             new_legs = [new_legs, new_legs]
         return Node(tensor1, [*legs1, new_legs[0]]), Node(tensor2, [*legs2, new_legs[1]])
-
