@@ -28,5 +28,6 @@ for i in range(3):
         feed_dict[ss.lat[i][j].data] = lat[i][j]
         feed_dict[ss.lat_hop[i][j].data] = lat_hop[i][j]
 
-w_s = sess.run(ss.w_s, feed_dict=feed_dict)
-print(w_s)
+print("START")
+E= sess.run(ss.energy, feed_dict=feed_dict)
+print(E)
