@@ -2,7 +2,9 @@ import numpy as np
 import tensorflow as tf
 from spin_state import SpinState
 
-ss = SpinState([3,3],2,3,1)
+L = 4
+D = 5
+ss = SpinState([L,L],D=D,D_c=7,scan_time=2)
 sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
 tf.summary.FileWriter('./run', sess.graph)
 def __create_node(i, j, n, m, D):
@@ -18,13 +20,13 @@ def __create_node(i, j, n, m, D):
     return np.random.rand(*[D for i in legs])
 
 
-spin = np.array([1,0,1,0,1,0,1,0,1]).reshape(3,3)
-lat = [[__create_node(i,j,3,3,2) for j in range(3) ]for i in range(3)]
-lat_hop = [[__create_node(i,j,3,3,2) for j in range(3) ]for i in range(3)]
+spin = [[ 1 if (i+j)%2==0 else 0 for j in range(L) ]for i in range(L)]
+lat = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
+lat_hop = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
 
 feed_dict = {ss.state: spin}
-for i in range(3):
-    for j in range(3):
+for i in range(L):
+    for j in range(L):
         feed_dict[ss.lat[i][j].data] = lat[i][j]
         feed_dict[ss.lat_hop[i][j].data] = lat_hop[i][j]
 

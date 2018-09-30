@@ -167,7 +167,7 @@ class SpinState():
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
         # 横向j j+1
         for i in range(n):
-            with tf.name_scope(f'mpo_h_{n}'):
+            with tf.name_scope(f'mpo_h_{i}'):
                 l = [None for j in range(m)]
                 l[-1] = Node(1.)
                 r = [None for j in range(m)]
@@ -190,10 +190,10 @@ class SpinState():
                         Delta_s[i][j] = Node.tensor_contract(
                             Node.tensor_contract(l[(j-1) % m], self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
                             Node.tensor_contract(r[(j+1) % m], self.DownToUp[(i+1) % n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
-                            ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False) / self.w_s
+                            ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False)
 
                 # 计算Es
-                with tf.name_scope('e_s'):
+                with tf.name_scope('H_ss'):
                     for j in range(m-1):
                         if self.state[i][j] != self.state[i][j+1]:
                             E_s_non_diag.append((l[(j-1) % m]\
@@ -203,7 +203,7 @@ class SpinState():
                                 .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
                                 .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
                                 .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False) * 2 / self.w_s).data)  # 哈密顿量
+                                .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data * 2 / self.w_s)  # 哈密顿量
         # 纵向i i+1
         for j in range(m):
             with tf.name_scope(f'mpo_v_{j}'):
@@ -234,7 +234,7 @@ class SpinState():
                         print(np.max(abs((tmp - Delta_s[i][j])/Delta_s[i][j])))
                 """
                 # 计算Es
-                with tf.name_scope('e_s'):
+                with tf.name_scope('H_ss'):
                     for i in range(n-1):
                         if self.state[i][j] != self.state[i+1][j]:
                             E_s_non_diag.append((u[(i-1) % n]\
@@ -244,13 +244,13 @@ class SpinState():
                                 .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)\
                                 .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
                                 .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False) * 2 / self.w_s).data)  # 哈密顿量
+                                .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data * 2 / self.w_s)  # 哈密顿量
 
         #E_s = E_s_diag + E_s_non_diag
         with tf.name_scope('res'):
             for i in range(n):
                 for j in range(m):
-                    Delta_s[i][j] = Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m), name=f'grad_{i}_{j}').data
+                    Delta_s[i][j] = tf.div(Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m)).data, self.w_s, name=f'grad_{i}_{j}')
             E_s = sum(E_s_non_diag) + E_s_diag
             self.energy = tf.multiply(E_s, 0.25, name='e_s')
             self.grad = Delta_s
@@ -267,15 +267,16 @@ class SpinState():
             self.UpToDown = [None for i in range(n)]
             self.UpToDown[0] = [self.lat[0][j] for j in range(m)]
             for i in range(1, n-1):
-                initial = [None for j in range(m)]
-                for j in range(m):
-                    if j == 0:
-                        initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'r'])
-                    elif j == m-1:
-                        initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'l'])
-                    else:
-                        initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['d', 'l', 'r'])
-                self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
+                with tf.name_scope(f"UpToDown_{i}"):
+                    initial = [None for j in range(m)]
+                    for j in range(m):
+                        if j == 0:
+                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'r'])
+                        elif j == m-1:
+                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'l'])
+                        else:
+                            initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['d', 'l', 'r'])
+                    self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
             self.UpToDown[n-1] = [Node(1.) for j in range(m)]
 
     def __auxiliary_down_to_up(self):
@@ -284,15 +285,16 @@ class SpinState():
             self.DownToUp = [None for i in range(n)]
             self.DownToUp[n-1] = [self.lat[n-1][j] for j in range(m)]
             for i in range(n-2, 0, -1):
-                initial = [None for j in range(m)]
-                for j in range(m):
-                    if j == 0:
-                        initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'r'])
-                    elif j == m-1:
-                        initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'l'])
-                    else:
-                        initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['u', 'l', 'r'])
-                self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
+                with tf.name_scope(f"DownToUp_{i}"):
+                    initial = [None for j in range(m)]
+                    for j in range(m):
+                        if j == 0:
+                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'r'])
+                        elif j == m-1:
+                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'l'])
+                        else:
+                            initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['u', 'l', 'r'])
+                    self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
             self.DownToUp[0] = [Node(1.) for j in range(m)]
 
     def __auxiliary_left_to_right(self):
@@ -301,15 +303,16 @@ class SpinState():
             self.LeftToRight = [None for j in range(m)]
             self.LeftToRight[0] = [self.lat[i][0] for i in range(n)]
             for j in range(1, m-1):
-                initial = [None for j in range(n)]
-                for i in range(n):
-                    if i == 0:
-                        initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'd'])
-                    elif i == n-1:
-                        initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'u'])
-                    else:
-                        initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['r', 'd', 'u'])
-                self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
+                with tf.name_scope(f"LeftToRight_{j}"):
+                    initial = [None for j in range(n)]
+                    for i in range(n):
+                        if i == 0:
+                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'd'])
+                        elif i == n-1:
+                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'u'])
+                        else:
+                            initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['r', 'd', 'u'])
+                    self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
                                                          L='u', R='d', U='l', D='r', scan_time=self.scan_time)
             self.LeftToRight[m-1] = [Node(1.) for i in range(n)]
             tmp = self.LeftToRight
@@ -321,15 +324,16 @@ class SpinState():
             self.RightToLeft = [None for j in range(m)]
             self.RightToLeft[m-1] = [self.lat[i][m-1] for i in range(n)]
             for j in range(m-2, 0, -1):
-                initial = [None for j in range(n)]
-                for i in range(n):
-                    if i == 0:
-                        initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'd'])
-                    elif i == n-1:
-                        initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'u'])
-                    else:
-                        initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['l', 'd', 'u'])
-                self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
+                with tf.name_scope(f"RightToLeft_{j}"):
+                    initial = [None for j in range(n)]
+                    for i in range(n):
+                        if i == 0:
+                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'd'])
+                        elif i == n-1:
+                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'u'])
+                        else:
+                            initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['l', 'd', 'u'])
+                    self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
                                                          L='u', R='d', U='r', D='l', scan_time=self.scan_time)
             self.RightToLeft[0] = [Node(1.) for i in range(n)]
             tmp = self.RightToLeft
