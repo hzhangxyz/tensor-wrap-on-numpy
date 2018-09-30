@@ -1,9 +1,9 @@
 import time
 import os
 import sys
-import numpy_wrap as np
+import numpy as np
 import tensorflow as tf
-from tensor import Node
+from tensor_node import Node
 
 
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
