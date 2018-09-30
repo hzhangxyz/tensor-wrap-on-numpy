@@ -1,9 +1,10 @@
 import time
 import os
 import sys
-import numpy_wrap as np
+import numpy as np
 import tensorflow as tf
 from tensor import Node
+from spin_state import SpinState
 
 
 def get_lattice_node_leg(i, j, n, m):
@@ -17,42 +18,35 @@ def get_lattice_node_leg(i, j, n, m):
     if j == m-1:
         legs = legs.replace('r', '')
     return legs
+    # 每个各点方向固定的吧
 
 
-class SquareLattice(list):
+class SquareLattice():
 
     def __create_node(self, i, j):
         legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
-        return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
+        return np.random.rand(2, *[self.D for i in legs])
 
     def __check_shape(self, input, i, j):
         legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
-        to_add = input.tensor_transpose(['p', *legs])
-        output = np.tensor(np.zeros([2, *[self.D for i in legs]]), legs=['p', *legs])
-        output[tuple([slice(i) for i in to_add.shape])] += to_add
+        output = np.zeros([2, *[self.D for i in legs]])
+        output[tuple([slice(i) for i in input.shape])] += input
         return output
 
-    def __new__(cls, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
-        obj = super().__new__(SquareLattice)
-        obj.size = n, m
-        obj.D = D
+    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
+        self.size = n, m
+        self.D = D
         if load_from != None and not os.path.exists(load_from):
             print(f"{load_from} not found")
             load_from = None
-        obj.load_from = load_from
-        # 准备在载入lattice信息之前需要用到的东西
+        self.load_from = load_from
 
-        return obj
-
-    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         if self.load_from == None:
-            tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
-            super().__init__(tmp)  # random init
+            self.data = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
         else:
             prepare = np.load(load_from)
             print(f'{load_from} loaded')
-            super().__init__([[self.__check_shape(np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']), i, j)
-                               for j in range(m)] for i in range(n)])  # random init
+            prepare = [[self.__check_shape(prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)])
             self.prepare = prepare
         # 载入lattice信息
 
@@ -72,13 +66,17 @@ class SquareLattice(list):
         self.step_print = step_print
         # 保存参数
 
+        self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=tf.float32)
+
+        def default_spin():
+            return [[1 if (i+j)%2==0 else 0 for j in range(m)] for i in range(n)]
         if self.load_from == None:
-            self.spin = SpinState(self, spin_state=None)
+            self.spin = default_spin()
         else:
             if f'spin' in prepare:
-                self.spin = SpinState(self, spin_state=prepare['spin'])
+                self.spin = prepare['spin']
             else:
-                self.spin = SpinState(self, spin_state=None)
+                self.spin = default_spin()
         # 准备spin state
 
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]

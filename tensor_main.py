@@ -5,8 +5,11 @@ from spin_state import SpinState
 L = 4
 D = 5
 ss = SpinState([L,L],D=D,D_c=7,scan_time=2)
+print("CONSTRUCTED")
 sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
-tf.summary.FileWriter('./run', sess.graph)
+print("SESSION READY")
+#tf.summary.FileWriter('./run', sess.graph)
+print("GRAPH WROTE")
 def __create_node(i, j, n, m, D):
     legs = 'lrud'
     if i == 0:
@@ -23,6 +26,7 @@ def __create_node(i, j, n, m, D):
 spin = [[ 1 if (i+j)%2==0 else 0 for j in range(L) ]for i in range(L)]
 lat = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
 lat_hop = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
+print("DATA PREPARED")
 
 feed_dict = {ss.state: spin}
 for i in range(L):
