@@ -17,7 +17,7 @@ class Node():
     """
     def __init__(self, data, legs):
         self.data = tf.convert_to_tensor(data)
-        self.legs = legs
+        self.legs = [legs[i] for i in range(len(data.get_shape()))]
         self.check_legs()
 
     def check_legs(self):
@@ -52,6 +52,13 @@ class Node():
                 return Node(self.data*arg.data, self.legs)
         else:
             return Node(self.data*arg, self.legs)
+
+    def __div__(self, arg):
+        if isinstance(arg, Node):
+            assert len(arg.data.get_shape()) == 0
+            return Node(self.data/arg.data, self.legs)
+        else:
+            return Node(self.data/arg, self.legs)
 
     def rename_legs(self, legs_dict, restrict_mode=True):
         for i, j in legs_dict.items():

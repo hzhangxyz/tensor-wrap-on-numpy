@@ -67,31 +67,26 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
 
     return res
 
+def get_lattice_node_leg(i, j, n, m):
+    legs = 'lrud'
+    if i == 0:
+        legs = legs.replace('u', '')
+    if i == n-1:
+        legs = legs.replace('d', '')
+    if j == 0:
+        legs = legs.replace('l', '')
+    if j == m-1:
+        legs = legs.replace('r', '')
+    return legs
 
 class SquareLattice(list):
 
     def __create_node(self, i, j):
-        legs = 'lrud'
-        if i == 0:
-            legs = legs.replace('u', '')
-        if i == self.size[0]-1:
-            legs = legs.replace('d', '')
-        if j == 0:
-            legs = legs.replace('l', '')
-        if j == self.size[1]-1:
-            legs = legs.replace('r', '')
+        legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
         return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
 
     def __check_shape(self, input, i, j):
-        legs = 'lrud'
-        if i == 0:
-            legs = legs.replace('u', '')
-        if i == self.size[0]-1:
-            legs = legs.replace('d', '')
-        if j == 0:
-            legs = legs.replace('l', '')
-        if j == self.size[1]-1:
-            legs = legs.replace('r', '')
+        legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
         to_add = input.tensor_transpose(['p', *legs])
         output = np.tensor(np.zeros([2, *[self.D for i in legs]]), legs=['p', *legs])
         output[tuple([slice(i) for i in to_add.shape])] += to_add
@@ -384,7 +379,7 @@ class SquareLattice(list):
 
 
 
-class SpinState(list):
+class SpinState():
 
     def __gen_markov_chain_pool(self):
         n, m = self.size
@@ -414,42 +409,26 @@ class SpinState(list):
         else:
             return self
 
-    def __new__(cls, lattice, *args, **kw):
-        obj = super().__new__(SpinState)
-        obj.size = lattice.size
-        obj.D = lattice.D
-        return obj
+    def __init__(self, size, D, D_c, TYPE=tf.float32, scan_time):
+        self.size = size
+        self.D = D
+        self.TYPE = tf.float32
+        def gen_place_holder(i, j):
+            legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
+            return Node(tf.placeholder(self.TYPE, shape=[self.D for i in legs]), legs)
+        self.lat = [[gen_place_holder(i, j) for j in range(m)] for i in range(n)]
+        self.lat_hop = [[gen_place_holder(i, j) for j in range(m)] for i in range(n)]
+        self.D_c = D_c
+        self.scan_time = scan_time
 
-    def fresh(self):
-        # 在spin或者lattice变化时call 之
-        self.D_c = self.lattice.D_c
-        self.scan_time = self.lattice.scan_time
-
-        self.lat = [[self.lattice[i][j][self[i][j]] for j in range(self.size[1])] for i in range(self.size[0])]
-        self.flag_up_to_down = False
-        self.flag_down_to_up = False
-        self.flag_left_to_right = False
-        self.flag_right_to_left = False
-        self.w_s = None
-
-        self.energy = None
-        self.grad = None
-
-    def __init__(self, lattice, spin_state=None):
-        if spin_state is not None:
-            super().__init__([[int(spin_state[i][j]) for j in range(self.size[1])] for i in range(self.size[0])])
-        else:
-            super().__init__([[(i+j) % 2 for j in range(self.size[1])] for i in range(self.size[0])])  # !!
-        self.lattice = lattice
-        self.fresh()
+        self.__auxiliary()
+        self.w_s = self.cal_w_s()
+        self.E, self.Grad = self.cal_E_s_and_Delta_s()
 
     def cal_w_s(self):
-        if self.w_s is not None:
-            return self.w_s
         n, m = self.size
 
-        self.__auxiliary_up_to_down()
-        self.w_s = np.tensor(1.)
+        self.w_s = Node(1)
         for j in range(0, m):
             self.w_s = self.w_s\
                 .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
@@ -457,53 +436,12 @@ class SpinState(list):
         assert self.w_s != 0., "w_s == 0"
         return self.w_s
 
-    def test_w_s(self):
-        n, m = self.size
-        self.__auxiliary()
-        res = []
-
-        self.w_s = np.tensor(1.)
-        for j in range(0, m):
-            self.w_s = self.w_s\
-                .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                .tensor_contract(self.lat[n-1][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
-        res.append(self.w_s)
-
-        self.w_s = np.tensor(1.)
-        for j in range(0, m):
-            self.w_s = self.w_s\
-                .tensor_contract(self.DownToUp[1][j], ['r2'], ['l'], {}, {'r': 'r2'}, restrict_mode=False)\
-                .tensor_contract(self.lat[0][j], ['r1', 'u'], ['l', 'd'], {}, {'r': 'r1'}, restrict_mode=False)
-        res.append(self.w_s)
-
-        self.w_s = np.tensor(1.)
-        for i in range(0, n):
-            self.w_s = self.w_s\
-                .tensor_contract(self.LeftToRight[i][m-2], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
-                .tensor_contract(self.lat[i][m-1], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
-        res.append(self.w_s)
-
-        self.w_s = np.tensor(1.)
-        for i in range(0, n):
-            self.w_s = self.w_s\
-                .tensor_contract(self.RightToLeft[i][1], ['d2'], ['u'], {}, {'d': 'd2'}, restrict_mode=False)\
-                .tensor_contract(self.lat[i][0], ['d1', 'l'], ['u', 'r'], {}, {'d': 'd1'}, restrict_mode=False)
-        res.append(self.w_s)
-
-        return res
-
     def cal_E_s_and_Delta_s(self, cal_grad=True):
         """
         E_s=\sum_{s'} W(s')/W(s) H_{ss'}
         第一部分:对角
         第二部分:交换
         """
-        if cal_grad:
-            if self.energy is not None and self.grad is not None:
-                return self.energy, self.grad
-        else:
-            if self.energy is not None:
-                return self.energy, None
         n, m = self.size
         self.__auxiliary()
         E_s_diag = 0.
@@ -538,7 +476,9 @@ class SpinState(list):
                     Delta_s[i][j] = np.tensor_contract(
                         np.tensor_contract(l[(j-1) % m], self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
                         np.tensor_contract(r[(j+1) % m], self.DownToUp[(i+1) % n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
-                        ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False) / self.cal_w_s()
+                        ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False) / self.w_s
+                    Delta_s[i][j] = Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m))
+
             # 计算Es
             for j in range(m-1):
                 if self[i][j] != self[i][j+1]:
@@ -549,7 +489,7 @@ class SpinState(list):
                         .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
                         .tensor_contract(self.lattice[i][(j+1) % m][1-self[i][(j+1) % m]], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
                         .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                        .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False) * 2 / self.cal_w_s()  # 哈密顿量
+                        .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False) * 2 / self.w_s  # 哈密顿量
         # 纵向i i+1
         for j in range(m):
             u = [None for i in range(n)]
@@ -611,13 +551,13 @@ class SpinState(list):
             initial = [None for j in range(m)]
             for j in range(m):
                 if j == 0:
-                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['d', 'r'])
+                    initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'r'])
                 elif j == m-1:
-                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['d', 'l'])
+                    initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'l'])
                 else:
-                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['d', 'l', 'r'])
+                    initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['d', 'l', 'r'])
             self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
-        self.UpToDown[n-1] = [np.tensor(1.) for j in range(m)]
+        self.UpToDown[n-1] = [Node(1) for j in range(m)]
 
     def __auxiliary_down_to_up(self):
         if self.flag_down_to_up:
@@ -630,13 +570,13 @@ class SpinState(list):
             initial = [None for j in range(m)]
             for j in range(m):
                 if j == 0:
-                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['u', 'r'])
+                    initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'r'])
                 elif j == m-1:
-                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c), legs=['u', 'l'])
+                    initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'l'])
                 else:
-                    initial[j] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['u', 'l', 'r'])
+                    initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['u', 'l', 'r'])
             self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
-        self.DownToUp[0] = [np.tensor(1.) for j in range(m)]
+        self.DownToUp[0] = [Node(1) for j in range(m)]
 
     def __auxiliary_left_to_right(self):
         if self.flag_left_to_right:
@@ -649,14 +589,14 @@ class SpinState(list):
             initial = [None for j in range(n)]
             for i in range(n):
                 if i == 0:
-                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['r', 'd'])
+                    initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'd'])
                 elif i == n-1:
-                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['r', 'u'])
+                    initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'u'])
                 else:
-                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['r', 'd', 'u'])
+                    initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['r', 'd', 'u'])
             self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
                                                      L='u', R='d', U='l', D='r', scan_time=self.scan_time)
-        self.LeftToRight[m-1] = [np.tensor(1.) for i in range(n)]
+        self.LeftToRight[m-1] = [Node(1) for i in range(n)]
         tmp = self.LeftToRight
         self.LeftToRight = [[tmp[j][i] for j in range(m)] for i in range(n)]
 
@@ -671,13 +611,13 @@ class SpinState(list):
             initial = [None for j in range(n)]
             for i in range(n):
                 if i == 0:
-                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['l', 'd'])
+                    initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'd'])
                 elif i == n-1:
-                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c), legs=['l', 'u'])
+                    initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'u'])
                 else:
-                    initial[i] = np.tensor(np.random.rand(self.D, self.D_c, self.D_c), legs=['l', 'd', 'u'])
+                    initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['l', 'd', 'u'])
             self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
                                                      L='u', R='d', U='r', D='l', scan_time=self.scan_time)
-        self.RightToLeft[0] = [np.tensor(1.) for i in range(n)]
+        self.RightToLeft[0] = [Node(1) for i in range(n)]
         tmp = self.RightToLeft
         self.RightToLeft = [[tmp[j][i] for j in range(m)] for i in range(n)]
