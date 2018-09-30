@@ -16,9 +16,9 @@ class Node():
     - qr
     """
 
-    def __init__(self, data, legs):
+    def __init__(self, data, legs=[]):
         self.data = tf.convert_to_tensor(data)
-        self.legs = [legs[i] for i in range(len(data.get_shape()))]
+        self.legs = [legs[i] for i in range(len(self.data.get_shape()))]
         self.check_legs()
 
     def check_legs(self):
@@ -34,16 +34,18 @@ class Node():
         res = self.data.__getitem__(arg)
         if not isinstance(arg, tuple):
             arg = (arg,)
-        index_to_del = [i for i, j in enumerate(arg) if isinstance(j, int)]
+        index_to_del = [i for i, j in enumerate(arg) if not isinstance(j, slice)]
         res_legs = [j for i, j in enumerate(self.legs) if i not in index_to_del]
         return Node(res, res_legs)
 
     def __add__(self, arg):
-        arg = arg.tensor_transpose(self.legs).data
+        if isinstance(arg, Node):
+            arg = arg.tensor_transpose(self.legs).data
         return Node(self.data + arg, self.legs)
 
     def __sub__(self, arg):
-        arg = arg.tensor_transpose(self.legs).data
+        if isinstance(arg, Node):
+            arg = arg.tensor_transpose(self.legs).data
         return Node(self.data - arg, self.legs)
 
     def __neg__(self):
@@ -58,7 +60,7 @@ class Node():
         else:
             return Node(self.data*arg, self.legs)
 
-    def __div__(self, arg):
+    def __truediv__(self, arg):
         if isinstance(arg, Node):
             assert len(arg.data.get_shape()) == 0
             return Node(self.data/arg.data, self.legs)
@@ -89,7 +91,7 @@ class Node():
         for i, j in zip(legs1, legs2):
             if i in tensor1.legs and j in tensor2.legs:
                 order1.append(tensor1.legs.index(i))
-                order2.append(tensor2.legs.index(k))
+                order2.append(tensor2.legs.index(j))
                 correct_legs1.append(i)
                 correct_legs2.append(j)
             else:
