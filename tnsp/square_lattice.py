@@ -42,11 +42,11 @@ class SquareLattice():
         self.load_from = load_from
 
         if self.load_from == None:
-            self.data = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
+            self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
         else:
             prepare = np.load(load_from)
             print(f'{load_from} loaded')
-            prepare = [[self.__check_shape(prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
+            self.lattice = [[self.__check_shape(prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
             self.prepare = prepare
         # 载入lattice信息
 
@@ -56,12 +56,14 @@ class SquareLattice():
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
+        """
         self.Hamiltonian = np.tensor(
             np.array([1, 0, 0, 0, 0, -1, 2, 0, 0, 2, -1, 0, 0, 0, 0, 1])
             .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])/4.
         self.Identity = np.tensor(
             np.identity(4)
             .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
+        """
 
         self.step_print = step_print
         # 保存参数
@@ -69,7 +71,7 @@ class SquareLattice():
         self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=tf.float32)
 
         def default_spin():
-            return [[1 if (i+j)%2==0 else 0 for j in range(m)] for i in range(n)]
+            return np.array([[1 if (i+j)%2==0 else 0 for j in range(m)] for i in range(n)])
         if self.load_from == None:
             self.spin = default_spin()
         else:
@@ -79,6 +81,7 @@ class SquareLattice():
                 self.spin = default_spin()
         # 准备spin state
 
+        """
         self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
         for i in range(n):
@@ -93,6 +96,7 @@ class SquareLattice():
                     if j != m-1:
                         self.env_h[i][j][:len(self.prepare["env_h"][i][j])] = self.prepare["env_h"][i][j]
         # 准备su用的环境
+        """
 
         self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
         print(f"save_prefix={self.save_prefix}")
@@ -113,8 +117,8 @@ class SquareLattice():
         n, m = self.size
         for i in range(n):
             for j in range(m):
-                prepare[f'node_{i}_{j}'] = self[i][j]
-                prepare[f'legs_{i}_{j}'] = self[i][j].legs
+                prepare[f'node_{i}_{j}'] = self.lattice[i][j]
+                prepare[f'legs_{i}_{j}'] = ['p', *get_lattice_node_leg(i, j, self.size[0], self.size[1])]
         np.savez_compressed(f'{self.save_prefix}/{prepare["name"]}.npz', **prepare)
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
@@ -123,43 +127,44 @@ class SquareLattice():
         os.symlink(f'{prepare["name"]}.npz', f'{self.save_prefix}/last.npz')
         # spin state 通过参数传进来, 因为他需要mpi gather
 
-    def grad_descent(self):
+    def grad_descent(self, sess):
         n, m = self.size
         t = 0
+        self.sess = sess
         file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
             energy, grad = self.markov_chain()
             for i in range(n):
                 for j in range(m):
-                    self[i][j] -= self.step_size*grad[i][j]
+                    self.lattice[i][j] -= self.step_size*grad[i][j]
             self.save(energy=energy, name=f'GM.{t}', spin=self.spin)
             file.write(f'{t} {energy}\n')
             file.flush()
             print(t, energy)
             t += 1
 
-    def markov_chain(self, cal_grad=True):
+    def markov_chain(self):
         n, m = self.size
-        self.spin.fresh()
-        sum_E_s = np.tensor(0.)
-        sum_Delta_s = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
-        Prod = [[np.tensor(np.zeros(self[i][j].shape), self[i][j].legs) for j in range(m)]for i in range(n)]
+        sum_E_s = np.zeros([])
+        sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
+        Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         for markov_step in range(self.markov_chain_length):
             print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
-            E_s, Delta_s = self.spin.cal_E_s_and_Delta_s(cal_grad)
+            feed_dict = {self.spin_model.state:self.spin}
+            for i in range(n):
+                for j in range(m):
+                    feed_dict[self.spin_model.lat[i][j].data] = self.lattice[i][j][self.spin[i][j]]
+                    feed_dict[self.spin_model.lat_hop[i][j].data] = self.lattice[i][j][1-self.spin[i][j]]
+            E_s, Delta_s = self.sess.run((self.spin_model.energy, self.spin_model.grad), feed_dict=feed_dict)
             sum_E_s += E_s
-            if cal_grad:
-                for i in range(n):
-                    for j in range(m):
-                        sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
-                        Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
-            self.spin = self.spin.markov_chain_hop()
+            for i in range(n):
+                for j in range(m):
+                    sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
+                    Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
+            #self.spin = self.spin.markov_chain_hop()
 
-        if cal_grad:
-            Grad = [[2.*Prod[i][j]/(self.markov_chain_length) -
-                     2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length)**2 for j in range(m)] for i in range(n)]
-        else:
-            Grad = None
+        Grad = [[2.*Prod[i][j]/(self.markov_chain_length) -
+                 2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length)**2 for j in range(m)] for i in range(n)]
         Energy = sum_E_s/(self.markov_chain_length*n*m)
         return Energy, Grad
 
