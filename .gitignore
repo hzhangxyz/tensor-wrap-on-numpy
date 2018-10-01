@@ -5,3 +5,4 @@ run
 htmlcov
 *log
 log*
+*.so
