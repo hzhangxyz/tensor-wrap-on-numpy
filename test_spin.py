@@ -6,9 +6,12 @@ L = 4
 D = 5
 ss = SpinState([L,L],D=D,D_c=7,scan_time=2)
 print("CONSTRUCTED")
-sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
+config = tf.ConfigProto()
+config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
+config.device_count['GPU']= 0
+sess = tf.Session(config=config)
 print("SESSION READY")
-#tf.summary.FileWriter('./run', sess.graph)
+tf.summary.FileWriter('./run', sess.graph)
 print("GRAPH WROTE")
 def __create_node(i, j, n, m, D):
     legs = 'lrud'

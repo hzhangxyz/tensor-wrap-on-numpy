@@ -146,7 +146,7 @@ class SquareLattice():
 
     def markov_chain(self):
         n, m = self.size
-        sum_E_s = np.zeros([], self.TYPE)
+        sum_E_s = tf.zeros([], dtype=self.TYPE)
         sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         for markov_step in range(self.markov_chain_length):

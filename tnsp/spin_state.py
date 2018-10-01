@@ -81,36 +81,7 @@ def get_lattice_node_leg(i, j, n, m):
         legs = legs.replace('r', '')
     return legs
 
-
 class SpinState():
-
-    def __gen_markov_chain_pool(self):
-        n, m = self.size
-        pool = []
-        for i in range(n):
-            for j in range(m):
-                if j != m-1:
-                    if self[i][j] != self[i][j+1]:
-                        pool.append([i, j, i, j+1])
-                if i != n-1:
-                    if self[i][j] != self[i+1][j]:
-                        pool.append([i, j, i+1, j])
-        return pool
-
-    def markov_chain_hop(self):
-        pool = self.__gen_markov_chain_pool()
-        choosed = pool[np.random.randint(len(pool))]
-        alter = type(self)(self.lattice, self)
-        alter[choosed[0]][choosed[1]] = 1 - alter[choosed[0]][choosed[1]]
-        alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
-        alter.fresh()
-        alter_pool = alter.__gen_markov_chain_pool()
-        possibility = (alter.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
-        # print("possi",possibility)
-        if possibility > np.random.rand():
-            return alter
-        else:
-            return self
 
     def __init__(self, size, D, D_c, scan_time, TYPE=tf.float32):
         self.size = size
@@ -135,8 +106,9 @@ class SpinState():
             self.__auxiliary()
         with tf.name_scope('w_s'):
             self.cal_w_s()
-        with tf.name_scope('cal_e_s_and_delta_s'):
-            self.cal_E_s_and_Delta_s()
+        with tf.name_scope('cal_e_s_and_delta_s_and_markov_hop'):
+            self.cal_E_s_and_Delta_s_and_markov_hop()
+        # res: self.w_s, self.energy, self.grad
 
     def cal_w_s(self):
         n, m = self.size
@@ -149,7 +121,7 @@ class SpinState():
         self.w_s = self.w_s.data
         assert self.w_s != 0., "w_s == 0"
 
-    def cal_E_s_and_Delta_s(self):
+    def cal_E_s_and_Delta_s_and_markov_hop(self):
         """
         E_s=\sum_{s'} W(s')/W(s) H_{ss'}
         第一部分:对角
@@ -165,6 +137,9 @@ class SpinState():
                     E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda :1., lambda :-1.)
         E_s_non_diag = []  # 为相邻两个交换后的w(s)之和
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
+        markov_h = []
+        markov_v = []
+
         # 横向j j+1
         for i in range(n):
             with tf.name_scope(f'mpo_h_{i}'):
@@ -195,17 +170,21 @@ class SpinState():
                 # 计算Es
                 with tf.name_scope('H_ss'):
                     for j in range(m-1):
-                        E_s_non_diag.append(
-                            tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]),
-                                lambda :(l[(j-1) % m]\
-                                    .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                                    .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                                    .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                    .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                                    .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                                    .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                    .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data * 2. / self.w_s,
-                                lambda :tf.zeros([], dtype=self.TYPE)))
+                        def if_can_hop():
+                            res = (l[(j-1) % m]\
+                                .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                                .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                                .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
+                                .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
+                                .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
+                                .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
+                                .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
+                            return res * 2. / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.py_func(count_hop, [self.state, [[i,j],[i,j+1]]], self.TYPE)
+                        def if_cannot_hop():
+                            return tf.zeros([], dtype=self.TYPE), -tf.ones([], dtype=self.TYPE)
+                        e_s_non_diag_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
+                        E_s_non_diag.append(e_s_non_diag_to_append)
+                        markov_h.append(markov_to_append)
         # 纵向i i+1
         for j in range(m):
             with tf.name_scope(f'mpo_v_{j}'):
@@ -228,17 +207,27 @@ class SpinState():
                 # 计算Es
                 with tf.name_scope('H_ss'):
                     for i in range(n-1):
-                        E_s_non_diag.append(
-                            tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]),
-                                lambda :(u[(i-1) % n]\
-                                    .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
-                                    .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
-                                    .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                    .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)\
-                                    .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
-                                    .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                    .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data * 2. / self.w_s,  # 哈密顿量
-                                lambda :tf.zeros([], dtype=self.TYPE)))
+                        def if_can_hop():
+                            res = (u[(i-1) % n]\
+                                .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
+                                .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
+                                .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
+                                .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)\
+                                .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
+                                .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
+                                .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
+                            return res * 2. / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.py_func(count_hop, [self.state, [[i,j],[i+1,j]]], self.TYPE)
+                        def if_cannot_hop():
+                            return tf.zeros([], dtype=self.TYPE), -tf.ones([], dtype=self.TYPE)
+                        e_s_non_diag_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
+                        E_s_non_diag.append(e_s_non_diag_to_append)
+                        markov_v.append(markov_to_append)
+
+        with tf.name_scope('markov'):
+            Markov_h = tf.convert_to_tensor(markov_h, name='markov_h')
+            Markov_v = tf.convert_to_tensor(markov_v, name='markov_v')
+            prob = (tf.sign(Markov_h) + 1)
+            print(Markov_h)
 
         #E_s = E_s_diag + E_s_non_diag
         with tf.name_scope('res'):
@@ -247,8 +236,30 @@ class SpinState():
                     Delta_s[i][j] = tf.div(Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m)).data, self.w_s, name=f'grad_{i}_{j}')
             E_s = sum(E_s_non_diag) + E_s_diag
             self.energy = tf.multiply(E_s, 0.25, name='e_s')
-            self.energy = tf.Print(self.energy, ["WTF"])
             self.grad = Delta_s
+
+    def __call__(self, sess, state, lat, lat_jop):
+        feed_dict = {self.state:state}
+        for i in range(n):
+            for j in range(m):
+                feed_dict[self.lat[i][j].data] = lat[i][j]
+                feed_dict[self.lat_hop[i][j].data] = lat_hop[i][j]
+        return sess.run({"energy": self.energy, grad: self.grad, step: self.steps, next: self.next}, feed_dict=feed_dict)
+
+    def markov_chain_hop(self):
+        pool = self.__gen_markov_chain_pool()
+        choosed = pool[np.random.randint(len(pool))]
+        alter = type(self)(self.lattice, self)
+        alter[choosed[0]][choosed[1]] = 1 - alter[choosed[0]][choosed[1]]
+        alter[choosed[2]][choosed[3]] = 1 - alter[choosed[2]][choosed[3]]
+        alter.fresh()
+        alter_pool = alter.__gen_markov_chain_pool()
+        possibility = (alter.cal_w_s()**2)/(self.cal_w_s()**2)*len(pool)/len(alter_pool)
+        # print("possi",possibility)
+        if possibility > np.random.rand():
+            return alter
+        else:
+            return self
 
     def __auxiliary(self):
         self.__auxiliary_up_to_down()
