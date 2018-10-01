@@ -8,9 +8,9 @@ sess = tf.Session(config=config)
 
 with sess:
     print("Session Running")
-    res = count_hop_module.count_hop(tf.convert_to_tensor([[1,0], [1,0], [0,1]], dtype=tf.int32), tf.convert_to_tensor([[0,0],[0,1]], dtype=tf.int32))
-    print(res)
-    print(res.get_shape())
+    res = count_hop_module.count_hop(tf.convert_to_tensor([[1,0], [1,0], [0,1]], dtype=tf.int32), tf.convert_to_tensor([], dtype=tf.int32))
     ans = res.eval()
     print(ans)
-    print(type(ans))
+    res = count_hop_module.count_hop(tf.convert_to_tensor([[1,0], [1,0], [0,1]], dtype=tf.int32), tf.convert_to_tensor([[0,0],[0,1]], dtype=tf.int32))
+    ans = res.eval()
+    print(ans)
