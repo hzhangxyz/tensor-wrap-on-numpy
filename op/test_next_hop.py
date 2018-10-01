@@ -8,10 +8,6 @@ sess = tf.Session(config=config)
 
 with sess:
     print("Session Running")
-    res1, res2 = next_hop_module.next_hop(tf.convert_to_tensor([0.1,0.2,0.4,-1,0.6], dtype=tf.float32))
-    print(res1)
-    print(res2)
-    print(res1.get_shape())
-    print(res2.get_shape())
+    res1, res2 = next_hop_module.next_hop([tf.convert_to_tensor(0.1),0.2,0.4,-1.,0.6])
     ans = sess.run([res1, res2])
-    pint(ans)
+    print(ans)

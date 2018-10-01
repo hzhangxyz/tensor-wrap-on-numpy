@@ -7,7 +7,7 @@
 using namespace tensorflow;
 
 REGISTER_OP("NextHop")
-.Input("possibility: float32")
+.Input("possibility: float")
 .Output("stay_step: int32")
 .Output("next_index: int32")
 .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
@@ -22,9 +22,20 @@ class NextHopOp : public OpKernel {
 
         void Compute(OpKernelContext* context) override {
             // Grab the input tensor
-            const Tensor& possibility = context->input(0);
-            auto n = possibility.dim_size(0);
-            auto m = possibility.dim_size(1);
+            const Tensor& possibility_handle = context->input(0);
+            auto total_n = possibility_handle.dim_size(0);
+            auto possibility = possibility_handle.flat<float>();
+
+            int flag[total_n];
+            int eff_n = 0;
+            for(int i = 0; i < total_n; i++){
+                if(possibility[i]>=0){
+                    flag[eff_n++] = i
+                }
+            }
+            typedef random::UniformDistribution<random::PhiloxRandom, IntType>
+                        Distribution;
+            nt performa
 
             Tensor* res = NULL;
             TensorShape shape;
