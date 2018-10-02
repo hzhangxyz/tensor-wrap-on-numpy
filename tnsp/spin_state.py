@@ -135,17 +135,19 @@ class SpinState():
         """
         n, m = self.size
         E_s_diag = tf.zeros([], dtype=self.TYPE)
-        for i in range(n):
-            for j in range(m):
-                if j != m-1:
-                    E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i][j+1]), lambda :1., lambda :-1.)
-                if i != n-1:
-                    E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda :1., lambda :-1.)
         E_s_non_diag = []  # 为相邻两个交换后的w(s)之和
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
         markov = []
 
-        self_count = tf.cast(count_hop(self.state, tf.convert_to_tensor([], dtype=tf.int32)), dtype=self.TYPE)
+        with tf.name_scope('e_s_diag_and_self_count'):
+            for i in range(n):
+                for j in range(m):
+                    if j != m-1:
+                        E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i][j+1]), lambda :1., lambda :-1.)
+                    if i != n-1:
+                        E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda :1., lambda :-1.)
+
+            self_count = tf.cast(count_hop(self.state, tf.convert_to_tensor([], dtype=tf.int32)), dtype=self.TYPE)
         # 横向j j+1
         for i in range(n):
             with tf.name_scope(f'mpo_h_{i}'):
