@@ -2,8 +2,7 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include <iostream>
-#include <typeinfo>
-#include <random>
+#include <ctime>
 
 using namespace tensorflow;
 
@@ -34,10 +33,15 @@ class NextHopOp : public OpKernel {
                     flag[eff_n++] = i;
                 }
             }
-            for(int i = 0;i<eff_n;i++){
-                std::cout << possibility(flag[i]) << ' ';
+
+            int stay_step = 0;
+            int next_index = 0;
+            std::srand(std::time(nullptr));
+            for(float hop_p=0, rand_n=1;hop_p<rand_n;++stay_step){
+                next_index = std::rand()%eff_n;
+                hop_p = possibility(flag[next_index]);
+                rand_n= ((float) std::rand()) / (float) RAND_MAX;
             }
-            std::cout << '\n';
 
             Tensor* res = NULL;
             TensorShape shape;
@@ -47,12 +51,12 @@ class NextHopOp : public OpKernel {
             OP_REQUIRES_OK(context, context->allocate_output(0, shape,
                         &res));
             auto out1 = res->flat<int32>();
-            out1(0) = 2;
+            out1(0) = stay_step;
 
             OP_REQUIRES_OK(context, context->allocate_output(1, shape,
                         &res));
             auto out2 = res->flat<int32>();
-            out2(0) = 3;
+            out2(0) = flag[next_index];
         }
 };
 
