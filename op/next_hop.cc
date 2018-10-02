@@ -3,6 +3,7 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include <iostream>
 #include <typeinfo>
+#include <random>
 
 using namespace tensorflow;
 
@@ -29,13 +30,14 @@ class NextHopOp : public OpKernel {
             int flag[total_n];
             int eff_n = 0;
             for(int i = 0; i < total_n; i++){
-                if(possibility[i]>=0){
-                    flag[eff_n++] = i
+                if(possibility(i)>=0){
+                    flag[eff_n++] = i;
                 }
             }
-            typedef random::UniformDistribution<random::PhiloxRandom, IntType>
-                        Distribution;
-            nt performa
+            for(int i = 0;i<eff_n;i++){
+                std::cout << possibility(flag[i]) << ' ';
+            }
+            std::cout << '\n';
 
             Tensor* res = NULL;
             TensorShape shape;

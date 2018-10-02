@@ -15,36 +15,28 @@ class CountHopOp : public OpKernel {
         explicit CountHopOp(OpKernelConstruction* context) : OpKernel(context) {}
 
         void Compute(OpKernelContext* context) override {
-            // Grab the input tensor
             const Tensor& spin_state = context->input(0);
             auto n = spin_state.dim_size(0);
             auto m = spin_state.dim_size(1);
-            auto spin_state_data = spin_state.flat<int32>();
+            auto pointer = spin_state.matrix<int32>().data();
 
             const Tensor& hop_list = context->input(1);
             auto true_hop_list = hop_list.flat<int32>();
             auto hop_num = hop_list.dim_size(0);
 
+            int tmp_spin[n][m];
+            std::memcpy(tmp_spin, pointer, n*m*sizeof(int));
+
             int sum = 0;
-            Eigen::MatrixXi spin_state_tmp(n, m);
-            for (int i = 0; i < n; i++) {
-                for (int j = 0; j < m; j++) {
-                    spin_state_tmp(i, j) = spin_state_data(i*m + j);
-                }
-            }
             for (int i = 0; i< hop_num; i++){
                 auto x= true_hop_list(2*i);
                 auto y= true_hop_list(2*i + 1);
-                spin_state_tmp(x, y) = 1 - spin_state_tmp(x, y);
+                tmp_spin[x][y] = 1 - tmp_spin[x][y];
             }
             for (int i = 0; i < n; i++) {
                 for (int j = 0; j < m; j++) {
-                    if ((i!=n-1) && (spin_state_tmp.coeff(i,j) != spin_state_tmp.coeff(i+1,j))){
-                        ++sum;
-                    }
-                    if ((j!=m-1) && (spin_state_tmp.coeff(i,j) != spin_state_tmp.coeff(i,j+1))){
-                        ++sum;
-                    }
+                    sum += ((i!=n-1) && (tmp_spin[i][j] != tmp_spin[i+1][j]));
+                    sum += ((j!=m-1) && (tmp_spin[i][j] != tmp_spin[i][j+1]));
                 }
             }
 
