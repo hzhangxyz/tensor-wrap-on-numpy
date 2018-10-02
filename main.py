@@ -39,7 +39,12 @@ print('构建网络既')
 
 print('创建session中')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
+config = tf.ConfigProto()
+config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_2
+config.intra_op_parallelism_threads=1
+config.inter_op_parallelism_threads=1
+config.device_count['GPU']= 0
+sess = tf.Session(config=config)
 print('创建session既')
 
 sl.grad_descent(sess)
