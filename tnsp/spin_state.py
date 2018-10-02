@@ -244,13 +244,14 @@ class SpinState():
             self.energy = tf.multiply(E_s, 0.25, name='e_s')
             self.grad = Delta_s
 
-    def __call__(self, sess, state, lat, lat_jop):
+    def __call__(self, sess, state, lat, lat_hop):
+        n, m = self.size
         feed_dict = {self.state:state}
         for i in range(n):
             for j in range(m):
                 feed_dict[self.lat[i][j].data] = lat[i][j]
                 feed_dict[self.lat_hop[i][j].data] = lat_hop[i][j]
-        return sess.run({"energy": self.energy, grad: self.grad, step: self.steps, next: self.next}, feed_dict=feed_dict)
+        return sess.run({"energy": self.energy, "grad": self.grad, "step": self.stay_step, "next": self.next_index}, feed_dict=feed_dict)
 
     def __auxiliary(self):
         self.__auxiliary_up_to_down()

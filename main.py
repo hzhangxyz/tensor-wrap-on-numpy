@@ -5,7 +5,7 @@ from tnsp import SquareLattice
 print('imported program')
 
 print('构建网络')
-sl = SquareLattice(2,2,3,4,1,0.01,10)
+sl = SquareLattice(4,4,D=2,D_c=6,scan_time=2,step_size=0.01,markov_chain_length=100)
 print('构建网络成功')
 
 print('创建session')

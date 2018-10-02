@@ -33,7 +33,7 @@ class SquareLattice():
         output[tuple([slice(i) for i in input.shape])] += input
         return output
 
-    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
+    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
         self.size = n, m
         self.D = D
         if load_from != None and not os.path.exists(load_from):
@@ -65,7 +65,6 @@ class SquareLattice():
             .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
         """
 
-        self.step_print = step_print
         # 保存参数
 
         self.TYPE=tf.float32
@@ -138,7 +137,7 @@ class SquareLattice():
             for i in range(n):
                 for j in range(m):
                     self.lattice[i][j] -= self.step_size*grad[i][j]
-            self.save(energy=energy, name=f'GM.{t}', spin=self.spin)
+            #self.save(energy=energy, name=f'GM.{t}', spin=self.spin)
             file.write(f'{t} {energy}\n')
             file.flush()
             print(t, energy)
@@ -146,178 +145,35 @@ class SquareLattice():
 
     def markov_chain(self):
         n, m = self.size
-        sum_E_s = tf.zeros([], dtype=self.TYPE)
+        real_step = np.array(0.)
+        sum_E_s = np.array(0.)
         sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         for markov_step in range(self.markov_chain_length):
             print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
-            feed_dict = {self.spin_model.state:self.spin}
+            lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
+            lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
+            res = self.spin_model(self.sess, self.spin, lat, lat_hop)
+            sum_E_s += res["energy"]*res["step"]
             for i in range(n):
                 for j in range(m):
-                    feed_dict[self.spin_model.lat[i][j].data] = self.lattice[i][j][self.spin[i][j]]
-                    feed_dict[self.spin_model.lat_hop[i][j].data] = self.lattice[i][j][1-self.spin[i][j]]
-            E_s, Delta_s = self.sess.run((self.spin_model.energy, self.spin_model.grad), feed_dict=feed_dict)
-            sum_E_s += E_s
-            for i in range(n):
-                for j in range(m):
-                    sum_Delta_s[i][j][self.spin[i][j]] += Delta_s[i][j]
-                    Prod[i][j][self.spin[i][j]] += E_s * Delta_s[i][j]
-            #self.spin = self.spin.markov_chain_hop()
+                    sum_Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
+                    Prod[i][j][self.spin[i][j]] += res["energy"]*res["grad"][i][j]*res["step"]
+            real_step += res["step"]
+            if res["next"] < n*(m-1):
+                next_index = res["next"]
+                hop_i = next_index // (m-1)
+                hop_j = next_index % (m-1)
+                self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
+                self.spin[hop_i][hop_j+1] = 1 - self.spin[hop_i][hop_j+1]
+            else:
+                next_index = res["next"] - n*(m-1)
+                hop_j = next_index // (n-1)
+                hop_i = next_index % (n-1)
+                self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
+                self.spin[hop_i+1][hop_j] = 1 - self.spin[hop_i+1][hop_j]
 
-        Grad = [[2.*Prod[i][j]/(self.markov_chain_length) -
-                 2.*sum_E_s*sum_Delta_s[i][j]/(self.markov_chain_length)**2 for j in range(m)] for i in range(n)]
-        Energy = sum_E_s/(self.markov_chain_length*n*m)
+        Grad = [[2.*Prod[i][j]/(real_step) -
+                 2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2 for j in range(m)] for i in range(n)]
+        Energy = sum_E_s/(real_step*n*m)
         return Energy, Grad
-
-    def pre_heating(self, step):
-        for markov_step in range(step):
-            self.spin = self.spin.markov_chain_hop()
-
-    def accurate_energy(self):
-        n, m = self.size
-        psi = np.tensor(1.)
-        for i in range(n):
-            for j in range(m):
-                psi = psi.tensor_contract(self[i][j], ['r', f'd{j}'], ['l', 'u'], {}, {'d': f'd{j}', 'p': f'p_{i}_{j}'}, restrict_mode=False)
-        Hpsi = psi*0
-        for i in range(n):
-            for j in range(m-1):
-                Hpsi += psi.tensor_contract(self.Hamiltonian,
-                                            [f'p_{i}_{j}', f'p_{i}_{j+1}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i}_{j+1}'}, restrict_mode=False)
-        for i in range(n-1):
-            for j in range(m):
-                Hpsi += psi.tensor_contract(self.Hamiltonian,
-                                            [f'p_{i}_{j}', f'p_{i+1}_{j}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i+1}_{j}'}, restrict_mode=False)
-        return psi.tensor_contract(Hpsi, psi.legs, psi.legs)/psi.tensor_contract(psi, psi.legs, psi.legs)/n/m
-
-    def itebd(self, accurate=False):
-        n, m = self.size
-        self.__pre_itebd_done_restore()  # 载入后第一次前需要还原
-        self.Evolution = self.Identity - self.step_size * self.Hamiltonian
-        file = open(f'{self.save_prefix}/SU.log', 'w')
-        t = 0
-        while True:
-            print('simple update', t % self.step_print, '/', self.step_print, end='\r')
-            self.__itebd_once_h(0)
-            self.__itebd_once_h(1)
-            self.__itebd_once_v(0)
-            self.__itebd_once_v(1)
-            self.__itebd_once_v(1)
-            self.__itebd_once_v(0)
-            self.__itebd_once_h(1)
-            self.__itebd_once_h(0)
-            if t % self.step_print == 0 and t != 0:
-                self.__pre_itebd_done()
-                print("\033[K", end='\r')
-                if accurate:
-                    energy = self.accurate_energy().tolist()
-                else:
-                    energy = self.markov_chain(cal_grad=False)[0]
-                print("\033[K", end='\r')
-                file.write(f'{t} {energy}\n')
-                print(t, energy)
-                file.flush()
-                self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')
-                self.__pre_itebd_done_restore()
-            t += 1
-
-    def __itebd_once_h(self, base):
-        n, m = self.size
-        for i in range(n):
-            for j in range(base, m-1, 2):
-                # j,j+1
-                self[i][j]\
-                    .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
-                    .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)\
-                    .tensor_multiple(self.env_v[i][j], 'd', restrict_mode=False)
-                self[i][j+1]\
-                    .tensor_multiple(self.env_v[i-1][j+1], 'u', restrict_mode=False)\
-                    .tensor_multiple(self.env_h[i][j+1], 'r', restrict_mode=False)\
-                    .tensor_multiple(self.env_v[i][j+1], 'd', restrict_mode=False)
-
-                tmp_left, r1 = self[i][j].tensor_qr(
-                    ['u', 'l', 'd'], ['r', 'p'], ['r', 'l'], restrict_mode=False)
-                tmp_right, r2 = self[i][j+1].tensor_qr(
-                    ['u', 'r', 'd'], ['l', 'p'], ['l', 'r'], restrict_mode=False)
-                r1.tensor_multiple(self.env_h[i][j], 'r')
-                big = np.tensor_contract(r1, r2, ['r'], ['l'], {'p': 'p1'}, {'p': 'p2'})
-                big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
-                big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'], full_matrices=False)
-
-                thisD = min(self.D, len(s))
-                self.env_h[i][j] = s[:thisD]
-                self[i][j] = u[:, :, :thisD]\
-                    .tensor_contract(tmp_left, ['l'], ['r'], {'P1': 'p'})
-                self[i][j+1] = v[:thisD, :, :]\
-                    .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
-                legs = self[i][j+1].legs
-                self[i][j+1] = self[i][j+1].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
-
-                self[i][j]\
-                    .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_v[i][j], 'd', restrict_mode=False)
-                self[i][j+1]\
-                    .tensor_multiple(1/self.env_v[i-1][j+1], 'u', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_h[i][j+1], 'r', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_v[i][j+1], 'd', restrict_mode=False)
-
-    def __itebd_once_v(self, base):
-        n, m = self.size
-        for i in range(base, n-1, 2):
-            for j in range(m):
-                # i,i+1
-                self[i][j]\
-                    .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)\
-                    .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
-                    .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)
-                self[i+1][j]\
-                    .tensor_multiple(self.env_h[i+1][j-1], 'l', restrict_mode=False)\
-                    .tensor_multiple(self.env_v[i+1][j], 'd', restrict_mode=False)\
-                    .tensor_multiple(self.env_h[i+1][j], 'r', restrict_mode=False)
-
-                tmp_up, r1 = self[i][j].tensor_qr(
-                    ['l', 'u', 'r'], ['d', 'p'], ['d', 'u'], restrict_mode=False)
-                tmp_down, r2 = self[i+1][j].tensor_qr(
-                    ['l', 'd', 'r'], ['u', 'p'], ['u', 'd'], restrict_mode=False)
-                r1.tensor_multiple(self.env_v[i][j], 'd')
-                big = np.tensor_contract(r1, r2, ['d'], ['u'], {'p': 'p1'}, {'p': 'p2'})
-                big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
-                big /= np.linalg.norm(big)
-                u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'], full_matrices=False)
-                thisD = min(self.D, len(s))
-                self.env_v[i][j] = s[:thisD]
-                self[i][j] = u[:, :, :thisD]\
-                    .tensor_contract(tmp_up, ['u'], ['d'], {'P1': 'p'})
-                self[i+1][j] = v[:thisD, :, :]\
-                    .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
-                legs = self[i+1][j].legs
-                self[i+1][j] = self[i+1][j].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
-
-                self[i][j]\
-                    .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_h[i][j], 'r', restrict_mode=False)
-                self[i+1][j]\
-                    .tensor_multiple(1/self.env_h[i+1][j-1], 'l', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_v[i+1][j], 'd', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_h[i+1][j], 'r', restrict_mode=False)
-
-    def __pre_itebd_done(self):
-        n, m = self.size
-        for i in range(n):
-            for j in range(m):
-                self[i][j]\
-                    .tensor_multiple(self.env_v[i][j], 'd', restrict_mode=False)\
-                    .tensor_multiple(self.env_h[i][j], 'r', restrict_mode=False)\
-
-
-    def __pre_itebd_done_restore(self):
-        n, m = self.size
-        for i in range(n):
-            for j in range(m):
-                self[i][j]\
-                    .tensor_multiple(1/self.env_v[i][j], 'd', restrict_mode=False)\
-                    .tensor_multiple(1/self.env_h[i][j], 'r', restrict_mode=False)\
-

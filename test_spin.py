@@ -41,17 +41,15 @@ spin = [[ 1 if (i+j)%2==0 else 0 for j in range(L) ]for i in range(L)]
 lat = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
 lat_hop = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
 
-feed_dict2 = {ss.state: spin}
-for i in range(L):
-    for j in range(L):
-        feed_dict2[ss.lat[i][j].data] = lat[i][j]
-        feed_dict2[ss.lat_hop[i][j].data] = lat_hop[i][j]
 print("DATA PREPARED")
 print("START")
 
+E= ss(sess, spin, lat, lat_hop)
+print(E)
+"""
 for _ in range(3):
     print('start')
-    E= sess.run((ss.energy, ss.stay_step, ss.next_index), feed_dict=feed_dict)
+    E= ss(sess, spin, lat, lat_hop)
     print(E)
     time.sleep(1)
 for _ in range(3):
@@ -59,3 +57,4 @@ for _ in range(3):
     E= sess.run((ss.energy, ss.stay_step, ss.next_index), feed_dict=feed_dict2)
     print(E)
     time.sleep(1)
+"""
