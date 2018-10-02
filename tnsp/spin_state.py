@@ -6,6 +6,12 @@ import tensorflow as tf
 from .tensor_node import Node
 
 
+count_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'count_hop.so')
+next_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'next_hop.so')
+count_hop = tf.load_op_library(count_hop_path).count_hop
+next_hop = tf.load_op_library(next_hop_path).next_hop
+
+
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
     res = [initial[i] for i in range(length)]
