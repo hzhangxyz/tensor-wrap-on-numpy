@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 print('载入程序中')
 import os
+import time
 import argparse
 import tensorflow as tf
 from tnsp import SquareLattice
@@ -38,7 +39,6 @@ sl = SquareLattice([args.n, args.m], D=args.D, D_c=args.D_c, scan_time=args.scan
 print('构建网络既')
 
 print('创建session中')
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 config = tf.ConfigProto()
 config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_2
 config.intra_op_parallelism_threads = 1
@@ -47,4 +47,6 @@ config.device_count['GPU'] = 0
 sess = tf.Session(config=config)
 print('创建session既')
 
+start = time.time()
 sl.grad_descent(sess)
+print(time.time()-start)
