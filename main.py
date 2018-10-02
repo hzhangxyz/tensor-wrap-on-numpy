@@ -1,15 +1,18 @@
+import os
 import numpy as np
 import tensorflow as tf
 
+print('载入程序中', end='\r')
 from tnsp import SquareLattice
-print('imported program')
+print('载入程序既')
 
-print('构建网络')
-sl = SquareLattice(4,4,D=2,D_c=6,scan_time=2,step_size=0.01,markov_chain_length=100)
-print('构建网络成功')
+print('构建网络中', end='\r')
+sl = SquareLattice(2,2,D=2,D_c=6,scan_time=2,step_size=0.001,markov_chain_length=20)
+print('构建网络既')
 
-print('创建session')
+print('创建session中', end='\r')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
-print('创建session成功')
+print('创建session既')
 
 sl.grad_descent(sess)

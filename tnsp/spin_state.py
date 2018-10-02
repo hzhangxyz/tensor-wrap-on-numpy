@@ -232,7 +232,6 @@ class SpinState():
                         markov.append(markov_to_append)
 
         with tf.name_scope('markov'):
-            print(len(markov))
             self.stay_step, self.next_index = next_hop(markov)
 
         #E_s = E_s_diag + E_s_non_diag

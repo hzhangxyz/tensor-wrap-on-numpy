@@ -44,10 +44,9 @@ class SquareLattice():
         if self.load_from == None:
             self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
         else:
-            prepare = np.load(load_from)
+            self.prepare = np.load(load_from)
             print(f'{load_from} loaded')
-            self.lattice = [[self.__check_shape(prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
-            self.prepare = prepare
+            self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
         # 载入lattice信息
 
         self.D_c = D_c
@@ -96,7 +95,6 @@ class SquareLattice():
                     if j != m-1:
                         self.env_h[i][j][:len(self.prepare["env_h"][i][j])] = self.prepare["env_h"][i][j]
         # 准备su用的环境
-        """
 
         self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
         print(f"save_prefix={self.save_prefix}")
@@ -126,12 +124,14 @@ class SquareLattice():
             os.rename(f'{self.save_prefix}/last.npz', f'{self.save_prefix}/bak.npz')
         os.symlink(f'{prepare["name"]}.npz', f'{self.save_prefix}/last.npz')
         # spin state 通过参数传进来, 因为他需要mpi gather
+        """
 
     def grad_descent(self, sess):
         n, m = self.size
         t = 0
         self.sess = sess
-        file = open(f'{self.save_prefix}/GM.log', 'w')
+        #file = open(f'{self.save_prefix}/GM.log', 'w')
+        file = open(f'./run/last/GM.log', 'w')
         while True:
             energy, grad = self.markov_chain()
             for i in range(n):
