@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import tensorflow as tf
 from tnsp.spin_state import SpinState
@@ -47,15 +48,14 @@ for i in range(L):
         feed_dict2[ss.lat_hop[i][j].data] = lat_hop[i][j]
 print("DATA PREPARED")
 print("START")
-E= sess.run(ss.energy, feed_dict=feed_dict)
-print(E)
-E= sess.run(ss.energy, feed_dict=feed_dict)
-print(E)
-E= sess.run(ss.energy, feed_dict=feed_dict)
-print(E)
-E= sess.run(ss.energy, feed_dict=feed_dict2)
-print(E)
-E= sess.run(ss.energy, feed_dict=feed_dict2)
-print(E)
-E= sess.run(ss.energy, feed_dict=feed_dict2)
-print(E)
+
+for _ in range(3):
+    print('start')
+    E= sess.run((ss.energy, ss.stay_step, ss.next_index), feed_dict=feed_dict)
+    print(E)
+    time.sleep(1)
+for _ in range(3):
+    print('start')
+    E= sess.run((ss.energy, ss.stay_step, ss.next_index), feed_dict=feed_dict2)
+    print(E)
+    time.sleep(1)
