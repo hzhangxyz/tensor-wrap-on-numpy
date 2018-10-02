@@ -7,7 +7,7 @@ from tnsp import SquareLattice
 print('载入程序既')
 
 print('构建网络中', end='\r')
-sl = SquareLattice(2,2,D=2,D_c=6,scan_time=2,step_size=0.001,markov_chain_length=20)
+sl = SquareLattice(2,2,D=2,D_c=6,scan_time=2,step_size=0.00,markov_chain_length=200)
 print('构建网络既')
 
 print('创建session中', end='\r')

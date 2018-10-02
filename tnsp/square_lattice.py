@@ -154,12 +154,12 @@ class SquareLattice():
             lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
             lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
             res = self.spin_model(self.sess, self.spin, lat, lat_hop)
+            real_step += res["step"]
             sum_E_s += res["energy"]*res["step"]
             for i in range(n):
                 for j in range(m):
                     sum_Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
                     Prod[i][j][self.spin[i][j]] += res["energy"]*res["grad"][i][j]*res["step"]
-            real_step += res["step"]
             if res["next"] < n*(m-1):
                 next_index = res["next"]
                 hop_i = next_index // (m-1)
