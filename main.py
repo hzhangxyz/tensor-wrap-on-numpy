@@ -23,10 +23,10 @@ args = parser.parse_args()
 if args.continued and args.load_from != None:
     exit("conflict between --continue and --load-from")
 
-#if args.update and args.step_print == None:
+# if args.update and args.step_print == None:
 #    exit("--step-print needed when simple update")
 
-#if not args.update and args.accurate:
+# if not args.update and args.accurate:
 #    exit("--accurate only work for simple update")
 
 if args.continued and not args.load_from:
@@ -34,16 +34,16 @@ if args.continued and not args.load_from:
 print('载入程序既')
 
 print('构建网络中')
-sl = SquareLattice([args.n,args.m],D=args.D,D_c=args.D_c,scan_time=args.scan_time,step_size=args.step_size,markov_chain_length=args.markov, load_from=args.load_from, save_prefix=args.save_prefix)
+sl = SquareLattice([args.n, args.m], D=args.D, D_c=args.D_c, scan_time=args.scan_time, step_size=args.step_size, markov_chain_length=args.markov, load_from=args.load_from, save_prefix=args.save_prefix)
 print('构建网络既')
 
 print('创建session中')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 config = tf.ConfigProto()
 config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_2
-config.intra_op_parallelism_threads=1
-config.inter_op_parallelism_threads=1
-config.device_count['GPU']= 0
+config.intra_op_parallelism_threads = 1
+config.inter_op_parallelism_threads = 1
+config.device_count['GPU'] = 0
 sess = tf.Session(config=config)
 print('创建session既')
 

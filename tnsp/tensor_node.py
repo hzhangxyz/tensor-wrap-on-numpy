@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
+
 class Node(object):
     """
     支持的操作
@@ -15,6 +16,7 @@ class Node(object):
     - svd
     - qr
     """
+
     def rename_legs(self, legs_dict, restrict_mode=True):
         for i, j in legs_dict.items():
             if str(i) in self.legs:

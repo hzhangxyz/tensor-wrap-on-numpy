@@ -87,6 +87,7 @@ def get_lattice_node_leg(i, j, n, m):
         legs = legs.replace('r', '')
     return legs
 
+
 class SpinState():
 
     def __init__(self, size, D, D_c, scan_time, TYPE=tf.float32):
@@ -143,9 +144,9 @@ class SpinState():
             for i in range(n):
                 for j in range(m):
                     if j != m-1:
-                        E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i][j+1]), lambda :1., lambda :-1.)
+                        E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i][j+1]), lambda: 1., lambda: -1.)
                     if i != n-1:
-                        E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda :1., lambda :-1.)
+                        E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda: 1., lambda: -1.)
 
             self_count = tf.cast(count_hop(self.state, tf.convert_to_tensor([], dtype=tf.int32)), dtype=self.TYPE)
         # 横向j j+1
@@ -179,15 +180,16 @@ class SpinState():
                 with tf.name_scope('H_ss'):
                     for j in range(m-1):
                         def if_can_hop():
-                            res = (l[(j-1) % m]\
-                                .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                                .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)\
-                                .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)\
-                                .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
-                            return res * 2. / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i,j],[i,j+1]]), dtype=self.TYPE)
+                            res = (l[(j-1) % m]
+                                   .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
+                                   .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+                                   .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                                   .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
+                                   .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+                                   .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                                   .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
+                            return res * 2. / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE)
+
                         def if_cannot_hop():
                             return tf.zeros([], dtype=self.TYPE), -tf.ones([], dtype=self.TYPE)
                         e_s_non_diag_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
@@ -216,15 +218,16 @@ class SpinState():
                 with tf.name_scope('H_ss'):
                     for i in range(n-1):
                         def if_can_hop():
-                            res = (u[(i-1) % n]\
-                                .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
-                                .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)\
-                                .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)\
-                                .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)\
-                                .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
-                            return res * 2. / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i,j],[i+1,j]]), dtype=self.TYPE)
+                            res = (u[(i-1) % n]
+                                   .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)
+                                   .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+                                   .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
+                                   .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)
+                                   .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+                                   .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
+                                   .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
+                            return res * 2. / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE)
+
                         def if_cannot_hop():
                             return tf.zeros([], dtype=self.TYPE), -tf.ones([], dtype=self.TYPE)
                         e_s_non_diag_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
@@ -245,7 +248,7 @@ class SpinState():
 
     def __call__(self, sess, state, lat, lat_hop):
         n, m = self.size
-        feed_dict = {self.state:state}
+        feed_dict = {self.state: state}
         for i in range(n):
             for j in range(m):
                 feed_dict[self.lat[i][j].data] = lat[i][j]
@@ -310,7 +313,7 @@ class SpinState():
                         else:
                             initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['r', 'd', 'u'])
                     self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
-                                                         L='u', R='d', U='l', D='r', scan_time=self.scan_time)
+                                                             L='u', R='d', U='l', D='r', scan_time=self.scan_time)
             self.LeftToRight[m-1] = [Node(1.) for i in range(n)]
             tmp = self.LeftToRight
             self.LeftToRight = [[tmp[j][i] for j in range(m)] for i in range(n)]
@@ -331,7 +334,7 @@ class SpinState():
                         else:
                             initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['l', 'd', 'u'])
                     self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
-                                                         L='u', R='d', U='r', D='l', scan_time=self.scan_time)
+                                                             L='u', R='d', U='r', D='l', scan_time=self.scan_time)
             self.RightToLeft[0] = [Node(1.) for i in range(n)]
             tmp = self.RightToLeft
             self.RightToLeft = [[tmp[j][i] for j in range(m)] for i in range(n)]
