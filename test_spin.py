@@ -27,7 +27,7 @@ def __create_node(i, j, n, m, D):
     return np.random.rand(2, *[D for i in legs])
 
 spin = [[ 0 if (i+j)%2==0 else 1 for j in range(L) ]for i in range(L)]
-np.random.seed(42)
+np.random.seed(23)
 lattice = [[__create_node(i,j,L,L,D) for j in range(L) ]for i in range(L)]
 lat = [[lattice[i][j][spin[i][j]] for j in range(L)] for i in range(L)]
 lat_hop = [[lattice[i][j][1-spin[i][j]] for j in range(L)] for i in range(L)]

@@ -36,8 +36,8 @@ class NextHopOp : public OpKernel {
             int stay_step = 0;
             int next_index = 0;
             //std::srand((int)(possibility(flag[0])*65535));
-            int seed = std::time(0);
-            std::srand(seed);
+            //int seed;
+            //std::srand(seed);
             for(float hop_p=0, rand_n=1;hop_p<rand_n;++stay_step){
                 next_index = std::rand()%eff_n;
                 hop_p = possibility(flag[next_index]);

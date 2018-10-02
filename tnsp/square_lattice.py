@@ -33,8 +33,8 @@ class SquareLattice():
         output[tuple([slice(i) for i in input.shape])] += input
         return output
 
-    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
-        self.size = n, m
+    def __init__(self, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
+        n, m = self.size = size
         self.D = D
         if load_from != None and not os.path.exists(load_from):
             print(f"{load_from} not found")
@@ -70,7 +70,7 @@ class SquareLattice():
         self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=self.TYPE)
 
         def default_spin():
-            return np.array([[1 if (i+j)%2==0 else 0 for j in range(m)] for i in range(n)])
+            return np.array([[0 if (i+j)%2==0 else 1 for j in range(m)] for i in range(n)])
         if self.load_from == None:
             self.spin = default_spin()
         else:
@@ -126,12 +126,14 @@ class SquareLattice():
         # spin state 通过参数传进来, 因为他需要mpi gather
         """
 
+
+
     def grad_descent(self, sess):
         n, m = self.size
         t = 0
         self.sess = sess
-        #file = open(f'{self.save_prefix}/GM.log', 'w')
         file = open(f'./run/last/GM.log', 'w')
+        #file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
             energy, grad = self.markov_chain()
             for i in range(n):
@@ -159,7 +161,7 @@ class SquareLattice():
             for i in range(n):
                 for j in range(m):
                     sum_Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
-                    Prod[i][j][self.spin[i][j]] += res["energy"]*res["grad"][i][j]*res["step"]
+                    Prod[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]*res["energy"]
             if res["next"] < n*(m-1):
                 next_index = res["next"]
                 hop_i = next_index // (m-1)
