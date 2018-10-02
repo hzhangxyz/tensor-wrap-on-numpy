@@ -2,7 +2,6 @@
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include <iostream>
-#include <ctime>
 
 using namespace tensorflow;
 
@@ -21,7 +20,6 @@ class NextHopOp : public OpKernel {
         explicit NextHopOp(OpKernelConstruction* context) : OpKernel(context) {}
 
         void Compute(OpKernelContext* context) override {
-            // Grab the input tensor
             const Tensor& possibility_handle = context->input(0);
             auto total_n = possibility_handle.dim_size(0);
             auto possibility = possibility_handle.flat<float>();
@@ -36,7 +34,7 @@ class NextHopOp : public OpKernel {
 
             int stay_step = 0;
             int next_index = 0;
-            std::srand(std::time(nullptr));
+            std::srand((int)(possibility(flag[0])*65535));
             for(float hop_p=0, rand_n=1;hop_p<rand_n;++stay_step){
                 next_index = std::rand()%eff_n;
                 hop_p = possibility(flag[next_index]);
@@ -57,6 +55,7 @@ class NextHopOp : public OpKernel {
                         &res));
             auto out2 = res->flat<int32>();
             out2(0) = flag[next_index];
+
         }
 };
 
