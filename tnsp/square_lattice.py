@@ -140,6 +140,8 @@ class SquareLattice():
             file.flush()
             print(t, energy)
             t += 1
+            #if t==20:
+            #    break
 
     def markov_chain(self):
         n, m = self.size
