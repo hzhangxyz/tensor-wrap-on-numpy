@@ -182,10 +182,10 @@ class SpinState():
                                    .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
                                    .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
                                    .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
-                            return res * H[1,2] / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE), H[1,1]
+                            return res * H[1,2] / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE), tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
 
                         def if_cannot_hop():
-                            return tf.zeros([], dtype=self.TYPE), -1., H[0,0]
+                            return tf.zeros([], dtype=self.TYPE), -1., tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
                         e_s_non_diag_to_append, markov_to_append, e_s_diag_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
                         E_s_non_diag.append(e_s_non_diag_to_append)
                         markov.append(markov_to_append)
@@ -222,10 +222,10 @@ class SpinState():
                                    .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
                                    .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
                                    .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
-                            return res * H[1,2] / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE), H[1,1]
+                            return res * H[1,2] / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE), tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
 
                         def if_cannot_hop():
-                            return tf.zeros([], dtype=self.TYPE), -1., H[0,0]
+                            return tf.zeros([], dtype=self.TYPE), -1., tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
                         e_s_non_diag_to_append, markov_to_append, e_s_diag_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
                         E_s_non_diag.append(e_s_non_diag_to_append)
                         markov.append(markov_to_append)
