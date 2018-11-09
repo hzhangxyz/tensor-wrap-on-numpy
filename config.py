@@ -13,6 +13,6 @@ def get_lattice_node_leg(i, j, n, m):
     return legs
 
 Hamiltonian = lambda a,b,c,d: np.array([[ 1, 0, 0, 0],
-                        [ 0,-1, 2, 0],
-                        [ 0, 2,-1, 0],
-                        [ 0, 0, 0, 1]])/4.
+                                        [ 0,-1, 2, 0],
+                                        [ 0, 2,-1, 0],
+                                        [ 0, 0, 0, 1]])/4.
