@@ -4,21 +4,7 @@ import sys
 import numpy as np
 import tensorflow as tf
 from .tensor_node import Node
-from .spin_state import SpinState
-
-
-def get_lattice_node_leg(i, j, n, m):
-    legs = 'lrud'
-    if i == 0:
-        legs = legs.replace('u', '')
-    if i == n-1:
-        legs = legs.replace('d', '')
-    if j == 0:
-        legs = legs.replace('l', '')
-    if j == m-1:
-        legs = legs.replace('r', '')
-    return legs
-    # 每个各点方向固定的吧
+from .spin_state import SpinState, get_lattice_node_leg
 
 
 class SquareLattice():
