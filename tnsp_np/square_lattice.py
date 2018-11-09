@@ -4,37 +4,29 @@ import sys
 from . import numpy_wrap as np
 
 
-
-
+def get_lattice_node_leg(i, j, n, m):
+    legs = 'lrud'
+    if i == 0:
+        legs = legs.replace('u', '')
+    if i == n-1:
+        legs = legs.replace('d', '')
+    if j == 0:
+        legs = legs.replace('l', '')
+    if j == m-1:
+        legs = legs.replace('r', '')
+    return legs
 
 class SquareLattice(list):
-
     def __create_node(self, i, j):
-        legs = 'lrud'
-        if i == 0:
-            legs = legs.replace('u', '')
-        if i == self.size[0]-1:
-            legs = legs.replace('d', '')
-        if j == 0:
-            legs = legs.replace('l', '')
-        if j == self.size[1]-1:
-            legs = legs.replace('r', '')
-        return np.tensor(np.random.rand(2, *[self.D for i in legs]), legs=['p', *legs])
+        legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
+        output = np.random.rand(2, *[self.D for i in legs])
+        return np.tensor(output, legs=['p', *legs])
 
     def __check_shape(self, input, i, j):
-        legs = 'lrud'
-        if i == 0:
-            legs = legs.replace('u', '')
-        if i == self.size[0]-1:
-            legs = legs.replace('d', '')
-        if j == 0:
-            legs = legs.replace('l', '')
-        if j == self.size[1]-1:
-            legs = legs.replace('r', '')
-        to_add = input.tensor_transpose(['p', *legs])
-        output = np.tensor(np.zeros([2, *[self.D for i in legs]]), legs=['p', *legs])
-        output[tuple([slice(i) for i in to_add.shape])] += to_add
-        return output
+        legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
+        output = np.zeros([2, *[self.D for i in legs]])
+        output[tuple([slice(i) for i in input.shape])] += input
+        return np.tensor(output, legs=['p', *legs])
 
     def __new__(cls, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         obj = super().__new__(SquareLattice)
@@ -52,11 +44,10 @@ class SquareLattice(list):
             tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
             super().__init__(tmp)  # random init
         else:
-            prepare = np.load(load_from)
+            self.prepare = np.load(load_from)
             print(f'{load_from} loaded')
-            super().__init__([[self.__check_shape(np.tensor(prepare[f'node_{i}_{j}'], legs=prepare[f'legs_{i}_{j}']), i, j)
+            super().__init__([[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j)
                                for j in range(m)] for i in range(n)])  # random init
-            self.prepare = prepare
         # 载入lattice信息
 
         self.step_size = step_size
@@ -105,8 +96,8 @@ class SquareLattice(list):
         n, m = self.size
         for i in range(n):
             for j in range(m):
-                prepare[f'node_{i}_{j}'] = self[i][j]
-                prepare[f'legs_{i}_{j}'] = self[i][j].legs
+                legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
+                prepare[f'node_{i}_{j}'] = self[i][j].tensor_transpose(['p', *legs])
         np.savez_compressed(f'{self.save_prefix}/{prepare["name"]}.npz', **prepare)
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
