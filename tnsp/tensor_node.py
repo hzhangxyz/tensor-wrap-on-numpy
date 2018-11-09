@@ -19,7 +19,7 @@ class Node(object):
                 self.legs[self.legs.index(i)] = j
             else:
                 if restrict_mode:
-                    raise Exception("leg not found")
+                    raise Exception('leg not found')
         self.check_legs()
         return self
 
@@ -33,7 +33,7 @@ class Node(object):
         return self.data.shape
 
     def check_legs(self):
-        assert len(set(self.legs)) == len(self.legs), "repeated legs name"
+        assert len(set(self.legs)) == len(self.legs), 'repeated legs name'
 
     def __repr__(self):
         return f'{self.data.__repr__()}\nlegs[{self.legs}]'
@@ -88,18 +88,20 @@ class Node(object):
             return Node(self.data/arg, self.legs)
     """
 
-    def tensor_transpose(self, legs, name_scope='tensor_transpose'):
-        with tf.name_scope(name_scope):
+    def tensor_transpose(self, legs, name='tensor_transpose'):
+        with tf.name_scope(name):
             res = tf.transpose(self.data, [self.legs.index(i) for i in legs])
             return Node(res, legs)
 
-    def tensor_contract(self, tensor, legs1, legs2, legs_dict1={}, legs_dict2={}, restrict_mode=True):
+    def tensor_contract(self, tensor, legs1, legs2, legs_dict1={}, legs_dict2={}, restrict_mode=True, name='tensor_contract'):
         tensor1 = self
         tensor2 = tensor
         order1 = []
         order2 = []
         correct_legs1 = []
         correct_legs2 = []
+        if restrict_mode:
+            assert len(legs1) == len(legs2), 'contract legs number differ'
         for i, j in zip(legs1, legs2):
             if i in tensor1.legs and j in tensor2.legs:
                 order1.append(tensor1.legs.index(i))
@@ -108,27 +110,27 @@ class Node(object):
                 correct_legs2.append(j)
             else:
                 if restrict_mode:
-                    raise Exception("leg not match in contract")
+                    raise Exception('leg not match in contract')
         legs = [j if j not in legs_dict1 else legs_dict1[j]
                 for j in tensor1.legs if j not in correct_legs1] +\
                [j if j not in legs_dict2 else legs_dict2[j]
                 for j in tensor2.legs if j not in correct_legs2]
-        res = tf.tensordot(tensor1.data, tensor2.data, [order1, order2], name='tensor_contract')
+        res = tf.tensordot(tensor1.data, tensor2.data, [order1, order2], name=name)
         return Node(res, legs)
 
-    def tensor_multiple(self, arr, leg, restrict_mode=True):
+    def tensor_multiple(self, arr, leg, restrict_mode=True, name='tensor_multiple'):
         if leg not in self.legs:
             if restrict_mode:
-                raise Exception("leg not match in multiple")
+                raise Exception('leg not match in multiple')
         else:
-            self.data = tf.tensordot(self.data, arr, [[self.legs.index(leg)], [0]], name='tensor_multiple')
+            self.data = tf.tensordot(self.data, arr, [[self.legs.index(leg)], [0]], name=name)
         return self
 
-    def tensor_svd(self, legs1, legs2, new_legs, restrict_mode=True, name_scope='tensor_svd', *args, **kw):
-        with tf.name_scope(name_scope):
+    def tensor_svd(self, legs1, legs2, new_legs, restrict_mode=True, name='tensor_svd', *args, **kw):
+        with tf.name_scope(name):
             assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), "svd legs not correct"
             if restrict_mode:
-                assert set(legs1) | set(legs2) == set(self.legs), "svd legs not correct"
+                assert set(legs1) | set(legs2) == set(self.legs), 'svd legs not correct'
             legs1 = [i for i in self.legs if i in legs1]
             legs2 = [i for i in self.legs if i in legs2]
             transposed = self.tensor_transpose([*legs1, *legs2])
@@ -143,11 +145,11 @@ class Node(object):
                 new_legs = [new_legs, new_legs]
             return Node(tensor1, [*legs1, new_legs[0]]), env, Node(tensor2, [*legs2, new_legs[1]])
 
-    def tensor_qr(self, legs1, legs2, new_legs, restrict_mode=True, name_scope='tensor_qr', *args, **kw):
-        with tf.name_scope(name_scope):
-            assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), "qr legs not correct"
+    def tensor_qr(self, legs1, legs2, new_legs, restrict_mode=True, name='tensor_qr', *args, **kw):
+        with tf.name_scope(name):
+            assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), 'qr legs not correct'
             if restrict_mode:
-                assert set(legs1) | set(legs2) == set(self.legs), "qr legs not correct"
+                assert set(legs1) | set(legs2) == set(self.legs), 'qr legs not correct'
             legs1 = [i for i in self.legs if i in legs1]
             legs2 = [i for i in self.legs if i in legs2]
             transposed = self.tensor_transpose([*legs1, *legs2])
