@@ -4,6 +4,9 @@ import sys
 from . import numpy_wrap as np
 
 
+
+
+
 class SquareLattice(list):
 
     def __create_node(self, i, j):
@@ -133,11 +136,12 @@ class SquareLattice(list):
         n, m = self.size
         self.__pre_itebd_done_restore()  # 载入后第一次前需要还原
         self.Evolution = self.Identity - self.step_size * self.Hamiltonian
-        file = open(f'{self.save_prefix}/SU.log', 'w')
+        if self.step_print != -1:
+            file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
         while True:
             if self.step_print == -1:
-                print('simple update', t, end='\r')
+                print('simple update', t)
             else:
                 print('simple update', t % self.step_print, '/', self.step_print, end='\r')
             self.__itebd_once_h(0)
@@ -149,17 +153,17 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_h(0)
             if t % self.step_print == 0 and t != 0:
+                self.__pre_itebd_done()
                 if self.step_print != -1:
-                    self.__pre_itebd_done()
                     print("\033[K", end='\r')
                     energy = self.accurate_energy().tolist()
                     file.write(f'{t} {energy}\n')
                     file.flush()
                     print(t, energy)
-                    self.__pre_itebd_done_restore()
                     self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')
                 else:
                     self.save(env_v=self.env_v, env_h=self.env_h, name=f'SU.{t}')
+                self.__pre_itebd_done_restore()
             t += 1
 
     def __itebd_once_h(self, base):
