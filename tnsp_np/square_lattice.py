@@ -35,20 +35,16 @@ class SquareLattice(list):
 
     def __new__(cls, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         obj = super().__new__(SquareLattice)
-        obj.size = size
-        obj.D = D
-        if load_from != None and not os.path.exists(load_from):
-            print(f"{load_from} not found")
-            load_from = None
-        obj.load_from = load_from
-        # 准备在载入lattice信息之前需要用到的东西
-
         return obj
 
     def __init__(self, size, D, step_size, load_from=None, save_prefix="run", step_print=100):
-        n, m = self.size
-        D = self.D
-        
+        n, m = self.size = size
+        self.D = D
+        if load_from != None and not os.path.exists(load_from):
+            print(f"{load_from} not found")
+            load_from = None
+        self.load_from = load_from
+
         if self.load_from == None:
             tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
             super().__init__(tmp)  # random init
@@ -140,7 +136,10 @@ class SquareLattice(list):
         file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
         while True:
-            print('simple update', t % self.step_print, '/', self.step_print, end='\r')
+            if self.step_print == -1:
+                print('simple update', t, end='\r')
+            else:
+                print('simple update', t % self.step_print, '/', self.step_print, end='\r')
             self.__itebd_once_h(0)
             self.__itebd_once_h(1)
             self.__itebd_once_v(0)
@@ -150,17 +149,17 @@ class SquareLattice(list):
             self.__itebd_once_h(1)
             self.__itebd_once_h(0)
             if t % self.step_print == 0 and t != 0:
-                self.__pre_itebd_done()
-                print("\033[K", end='\r')
-                energy = 0
-                if cal_energy:
-                    energy = self.accurate_energy().tolist()
+                if self.step_print != -1:
+                    self.__pre_itebd_done()
                     print("\033[K", end='\r')
+                    energy = self.accurate_energy().tolist()
                     file.write(f'{t} {energy}\n')
-                    print(t, energy)
                     file.flush()
-                self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')
-                self.__pre_itebd_done_restore()
+                    print(t, energy)
+                    self.__pre_itebd_done_restore()
+                    self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')
+                else:
+                    self.save(env_v=self.env_v, env_h=self.env_h, name=f'SU.{t}')
             t += 1
 
     def __itebd_once_h(self, base):
