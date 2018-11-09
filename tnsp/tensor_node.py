@@ -128,7 +128,7 @@ class Node(object):
 
     def tensor_svd(self, legs1, legs2, new_legs, restrict_mode=True, name='tensor_svd', *args, **kw):
         with tf.name_scope(name):
-            assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), "svd legs not correct"
+            assert set(legs1) | set(legs2) >= set(self.legs) and set(legs1) & set(legs2) == set(), 'svd legs not correct'
             if restrict_mode:
                 assert set(legs1) | set(legs2) == set(self.legs), 'svd legs not correct'
             legs1 = [i for i in self.legs if i in legs1]
