@@ -99,6 +99,7 @@ class SpinState():
             with tf.name_scope('lat_hop'):
                 self.lat_hop = [[gen_place_holder(i, j, prefix='lat_hop') for j in range(m)] for i in range(n)]
 
+        """
         print()
         for i in range(n):
             for j in range(m):
@@ -115,6 +116,7 @@ class SpinState():
                     print(' ', end='')
                 print(' ', end='')
             print()
+        """
 
         self.D_c = D_c
         self.scan_time = scan_time
@@ -124,7 +126,6 @@ class SpinState():
         with tf.name_scope('w_s'):
             self.cal_w_s()
         with tf.name_scope('cal_e_s_and_delta_s_and_markov_hop'):
-            print('All other things')
             self.cal_E_s_and_Delta_s_and_markov_hop()
         # res: self.w_s, self.energy, self.grad
 
@@ -302,7 +303,6 @@ class SpinState():
 
     def __auxiliary_up_to_down(self):
         n, m = self.size
-        print('Aux Up to Down')
         with tf.name_scope("UpToDown"):
             self.UpToDown = [None for i in range(n)]
             self.UpToDown[0] = [self.lat[0][j] for j in range(m)]
@@ -321,7 +321,6 @@ class SpinState():
 
     def __auxiliary_down_to_up(self):
         n, m = self.size
-        print('Aux Down to Up')
         with tf.name_scope("DownToUp"):
             self.DownToUp = [None for i in range(n)]
             self.DownToUp[n-1] = [self.lat[n-1][j] for j in range(m)]
@@ -340,7 +339,6 @@ class SpinState():
 
     def __auxiliary_left_to_right(self):
         n, m = self.size
-        print('Aux Left to Right')
         with tf.name_scope("LeftToRight"):
             self.LeftToRight = [None for j in range(m)]
             self.LeftToRight[0] = [self.lat[i][0] for i in range(n)]
@@ -362,7 +360,6 @@ class SpinState():
 
     def __auxiliary_right_to_left(self):
         n, m = self.size
-        print('Aux Right to Left')
         with tf.name_scope("RightToLeft"):
             self.RightToLeft = [None for j in range(m)]
             self.RightToLeft[m-1] = [self.lat[i][m-1] for i in range(n)]

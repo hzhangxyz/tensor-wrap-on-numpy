@@ -3,9 +3,15 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
+from mpi4py import MPI
 from .tensor_node import Node
 from .spin_state import SpinState, get_lattice_node_leg
 
+
+mpi_comm = MPI.COMM_WORLD
+mpi_rank = mpi_comm.Get_rank()
+mpi_size = mpi_comm.Get_size()
+print("mpi info:", mpi_rank, "/", mpi_size)
 
 class SquareLattice():
 
@@ -34,7 +40,11 @@ class SquareLattice():
         else:
             self.prepare = np.load(load_from)
             print(f'{load_from} loaded')
-            self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
+            if mpi_rank==0:
+                self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
+            else:
+                self.lattice = None
+            self.lattice = mpi_comm.bcast(self.lattice, root=0)
         # 载入lattice信息
 
         self.D_c = D_c
@@ -62,8 +72,8 @@ class SquareLattice():
         if self.load_from == None:
             self.spin = default_spin()
         else:
-            if f'spin' in self.prepare:
-                self.spin = self.prepare['spin']
+            if f'spin_{mpi_rank}' in self.prepare:
+                self.spin = self.prepare[f'spin_{mpi_rank}']
             else:
                 self.spin = default_spin()
         # 准备spin state
@@ -85,18 +95,19 @@ class SquareLattice():
         # 准备su用的环境
         """
 
-        self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
-        print(f"save_prefix={self.save_prefix}")
-        os.makedirs(self.save_prefix, exist_ok=True)
-        if self.load_from is not None:
-            os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
-        file = open(f'{self.save_prefix}/parameter', 'w')
-        file.write(str(sys.argv))
-        file.close()
-        split_name = os.path.split(self.save_prefix)
-        if os.path.exists(f'{split_name[0]}/last'):
-            os.remove(f'{split_name[0]}/last')
-        os.symlink(split_name[1], f'{split_name[0]}/last')
+        if mpi_rank == 0:
+            self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
+            print(f"save_prefix={self.save_prefix}")
+            os.makedirs(self.save_prefix, exist_ok=True)
+            if self.load_from is not None:
+                os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
+            file = open(f'{self.save_prefix}/parameter', 'w')
+            file.write(str(sys.argv))
+            file.close()
+            split_name = os.path.split(self.save_prefix)
+            if os.path.exists(f'{split_name[0]}/last'):
+                os.remove(f'{split_name[0]}/last')
+            os.symlink(split_name[1], f'{split_name[0]}/last')
         # 文件记录
 
     def save(self, **prepare):
@@ -117,19 +128,25 @@ class SquareLattice():
         n, m = self.size
         t = 0
         self.sess = sess
-        file = open(f'{self.save_prefix}/GM.log', 'w')
+        if mpi_rank == 0:
+            file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
             energy, grad = self.markov_chain()
-            #tmp_list = []
+            gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
+            if mpi_rank == 0:
+                for i in range(n):
+                    for j in range(m):
+                        self.lattice[i][j] -= self.step_size*grad[i][j]
+                spin_dict = {}
+                for i, s in enumerate(gather_spin):
+                    spin_dict[f'spin_{i}'] = s
+                self.save(energy=energy, name=f'GM.{t}', **spin_dict)
+                file.write(f'{t} {energy}\n')
+                file.flush()
+                print(t, energy)
             for i in range(n):
                 for j in range(m):
-                    self.lattice[i][j] -= self.step_size*grad[i][j]
-                    #tmp_list.append(np.linalg.norm(grad[i][j])/np.linalg.norm(self.lattice[i][j]))
-            #print(tmp_list)
-            self.save(energy=energy, name=f'GM.{t}', spin=self.spin)
-            file.write(f'{t} {energy}\n')
-            file.flush()
-            print(t, energy)
+                    self.lattice[i][j] = mpi_comm.bcast(self.lattice[i][j], root=0)
             t += 1
             #if t==20:
             #    break
@@ -173,7 +190,16 @@ class SquareLattice():
         #E_s_file.write('\n')
         #E_s_file.close()
 
-        Grad = [[(2.*Prod[i][j]/(real_step) -
-                 2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2)/(n*m) for j in range(m)] for i in range(n)]
-        Energy = sum_E_s/(real_step*n*m)
-        return Energy, Grad
+        real_step = mpi_comm.reduce(real_step, root=0)
+        sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
+        for i in range(n):
+            for j in range(m):
+                Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
+                sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
+        if mpi_rank == 0:
+            Grad = [[(2.*Prod[i][j]/(real_step) -
+                      2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2)/(n*m) for j in range(m)] for i in range(n)]
+            Energy = sum_E_s/(real_step*n*m)
+            return Energy, Grad
+        else:
+            return None, None
