@@ -30,53 +30,53 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
 
     for t in range(scan_time):
         with tf.name_scope(f'scan_time_{t}'):
-            res[0], QR_R = res[0].tensor_qr([D], [R], [R, L])
+            res[0], QR_R = res[0].tensor_qr([D], [R], [R, L], restrict_mode=False)
             l = [None for i in range(length)]
             l[0] = former[0]\
-                .tensor_contract(current[0], [D], [U], {R: R1}, {R: R2})\
-                .tensor_contract(res[0], [D], [D], {}, {R: R3})
+                .tensor_contract(current[0], [D], [U], {R: R1}, {R: R2}, restrict_mode=False)\
+                .tensor_contract(res[0], [D], [D], {}, {R: R3}, restrict_mode=False)
 
             for j in range(1, length-1):
                 if t == 0:
-                    res[j] = Node.tensor_contract(res[j], QR_R, [L], [R])
-                    res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L])
+                    res[j] = Node.tensor_contract(res[j], QR_R, [L], [R], restrict_mode=False)
+                    res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L], restrict_mode=False)
                     l[j] = l[j-1]\
-                        .tensor_contract(former[j], [R1], [L], {}, {R: R1})\
-                        .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2})\
-                        .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3})
+                        .tensor_contract(former[j], [R1], [L], {}, {R: R1}, restrict_mode=False)\
+                        .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2}, restrict_mode=False)\
+                        .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3}, restrict_mode=False)
                 else:
                     tmp = l[j-1]\
-                        .tensor_contract(former[j], [R1], [L], {}, {R: R1})\
-                        .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2})
+                        .tensor_contract(former[j], [R1], [L], {}, {R: R1}, restrict_mode=False)\
+                        .tensor_contract(current[j], [R2, D], [L, U], {}, {R: R2}, restrict_mode=False)
                     res[j] = tmp\
-                        .tensor_contract(r[j+1], [R1, R2], [L1, L2], {R3: L}, {L3: R})
-                    res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L])  # 这里R完全不需要
+                        .tensor_contract(r[j+1], [R1, R2], [L1, L2], {R3: L}, {L3: R}, restrict_mode=False)
+                    res[j], QR_R = res[j].tensor_qr([L, D], [R], [R, L], restrict_mode=False)  # 这里R完全不需要
                     l[j] = tmp\
-                        .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3})
+                        .tensor_contract(res[j], [R3, D], [L, D], {}, {R: R3}, restrict_mode=False)
 
             res[length-1] = l[length-2]\
-                .tensor_contract(former[length-1], [R1], [L])\
-                .tensor_contract(current[length-1], [R2, D], [L, U], {R3: L}, {})
+                .tensor_contract(former[length-1], [R1], [L], restrict_mode=False)\
+                .tensor_contract(current[length-1], [R2, D], [L, U], {R3: L}, {}, restrict_mode=False)
 
-            res[length-1], QR_R = res[length-1].tensor_qr([D], [L], [L, R])
+            res[length-1], QR_R = res[length-1].tensor_qr([D], [L], [L, R], restrict_mode=False)
             r = [None for i in range(length)]
             r[length-1] = former[length-1]\
-                .tensor_contract(current[length-1], [D], [U], {L: L1}, {L: L2})\
-                .tensor_contract(res[length-1], [D], [D], {}, {L: L3})
+                .tensor_contract(current[length-1], [D], [U], {L: L1}, {L: L2}, restrict_mode=False)\
+                .tensor_contract(res[length-1], [D], [D], {}, {L: L3}, restrict_mode=False)
 
             for j in range(length-2, 0, -1):
                 tmp = r[j+1]\
-                    .tensor_contract(former[j], [L1], [R], {}, {L: L1})\
-                    .tensor_contract(current[j], [L2, D], [R, U], {}, {L: L2})
+                    .tensor_contract(former[j], [L1], [R], {}, {L: L1}, restrict_mode=False)\
+                    .tensor_contract(current[j], [L2, D], [R, U], {}, {L: L2}, restrict_mode=False)
                 res[j] = tmp\
-                    .tensor_contract(l[j-1], [L1, L2], [R1, R2], {L3: R}, {R3: L})
-                res[j], QR_R = res[j].tensor_qr([R, D], [L], [L, R])
+                    .tensor_contract(l[j-1], [L1, L2], [R1, R2], {L3: R}, {R3: L}, restrict_mode=False)
+                res[j], QR_R = res[j].tensor_qr([R, D], [L], [L, R], restrict_mode=False)
                 r[j] = tmp\
-                    .tensor_contract(res[j], [L3, D], [R, D], {}, {L: L3})
+                    .tensor_contract(res[j], [L3, D], [R, D], {}, {L: L3}, restrict_mode=False)
 
             res[0] = former[0]\
-                .tensor_contract(current[0], [D], [U], {R: R1}, {R: R2})\
-                .tensor_contract(r[1], [R1, R2], [L1, L2], {}, {L3: R})
+                .tensor_contract(current[0], [D], [U], {R: R1}, {R: R2}, restrict_mode=False)\
+                .tensor_contract(r[1], [R1, R2], [L1, L2], {}, {L3: R}, restrict_mode=False)
 
     return res
 

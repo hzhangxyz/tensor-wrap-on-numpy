@@ -15,7 +15,8 @@ class SquareLattice():
 
     def __check_shape(self, input, i, j):
         legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
-        assert input.shape == (2, *[self.D for i in legs]), 'shape of node incorrect'
+        if input.shape != (2, *[self.D for i in legs]):
+            print('Warning: shape of node incorrect at',i,j,legs,input.shape,(2, *[self.D for i in legs]))
         #output[tuple([slice(i) for i in input.shape])] += input
         output = input
         return output
