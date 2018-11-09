@@ -118,6 +118,10 @@ class Node(object):
         res = tf.tensordot(tensor1.data, tensor2.data, [order1, order2], name=name)
         return Node(res, legs)
 
+    def tensor_scalar(self, scalar, name='tensor_scalar'):
+        self.data = tf.multiply(self.data, scalar, name=name)
+        return self
+
     def tensor_multiple(self, arr, leg, restrict_mode=True, name='tensor_multiple'):
         if leg not in self.legs:
             if restrict_mode:
