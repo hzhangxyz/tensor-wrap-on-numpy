@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+import importlib.util
 import numpy as np
 import tensorflow as tf
 from .tensor_node import Node
@@ -11,6 +12,10 @@ next_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'next_hop.so')
 count_hop = tf.load_op_library(count_hop_path).count_hop
 next_hop = tf.load_op_library(next_hop_path).next_hop
 
+spec = importlib.util.spec_from_file_location("config", "./config.py")
+config = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(config)
+get_lattice_node_leg = config.get_lattice_node_leg
 
 def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D='d', scan_time=2):
     # U to D, scan from L to R
@@ -73,20 +78,6 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
                 .tensor_contract(r[1], [R1, R2], [L1, L2], {}, {L3: R})
 
     return res
-
-
-def get_lattice_node_leg(i, j, n, m):
-    legs = 'lrud'
-    if i == 0:
-        legs = legs.replace('u', '')
-    if i == n-1:
-        legs = legs.replace('d', '')
-    if j == 0:
-        legs = legs.replace('l', '')
-    if j == m-1:
-        legs = legs.replace('r', '')
-    return legs
-
 
 class SpinState():
 

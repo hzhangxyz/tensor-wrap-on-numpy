@@ -1,20 +1,15 @@
 import time
 import os
 import sys
+import importlib.util
 from . import numpy_wrap as np
 
 
-def get_lattice_node_leg(i, j, n, m):
-    legs = 'lrud'
-    if i == 0:
-        legs = legs.replace('u', '')
-    if i == n-1:
-        legs = legs.replace('d', '')
-    if j == 0:
-        legs = legs.replace('l', '')
-    if j == m-1:
-        legs = legs.replace('r', '')
-    return legs
+spec = importlib.util.spec_from_file_location("config", "./config.py")
+config = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(config)
+get_lattice_node_leg = config.get_lattice_node_leg
+Hamiltonian = config.Hamiltonian
 
 class SquareLattice(list):
     def __create_node(self, i, j):
@@ -52,9 +47,9 @@ class SquareLattice(list):
 
         self.step_size = step_size
 
-        self.Hamiltonian = np.tensor(
-            np.array([1, 0, 0, 0, 0, -1, 2, 0, 0, 2, -1, 0, 0, 0, 0, 1])
-            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])/4.
+        self.Hamiltonian = lambda a,b,c,d: np.tensor(
+            np.array(Hamiltonian(a,b,c,d))
+            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
         self.Identity = np.tensor(
             np.identity(4)
             .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
@@ -115,18 +110,18 @@ class SquareLattice(list):
         Hpsi = psi*0
         for i in range(n):
             for j in range(m-1):
-                Hpsi += psi.tensor_contract(self.Hamiltonian,
+                Hpsi += psi.tensor_contract(self.Hamiltonian(i,j,i,j+1),
                                             [f'p_{i}_{j}', f'p_{i}_{j+1}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i}_{j+1}'}, restrict_mode=False)
         for i in range(n-1):
             for j in range(m):
-                Hpsi += psi.tensor_contract(self.Hamiltonian,
+                Hpsi += psi.tensor_contract(self.Hamiltonian(i,j,i+1,j),
                                             [f'p_{i}_{j}', f'p_{i+1}_{j}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i+1}_{j}'}, restrict_mode=False)
         return psi.tensor_contract(Hpsi, psi.legs, psi.legs)/psi.tensor_contract(psi, psi.legs, psi.legs)/n/m
 
     def itebd(self, cal_energy=False):
         n, m = self.size
         self.__pre_itebd_done_restore()  # 载入后第一次前需要还原
-        self.Evolution = self.Identity - self.step_size * self.Hamiltonian
+        self.Evolution = lambda a,b,c,d: self.Identity - self.step_size * self.Hamiltonian(a,b,c,d)
         if self.step_print != -1:
             file = open(f'{self.save_prefix}/SU.log', 'w')
         t = 0
@@ -162,6 +157,8 @@ class SquareLattice(list):
         for i in range(n):
             for j in range(base, m-1, 2):
                 # j,j+1
+                if 'r' not in self[i][j].legs:
+                    continue
                 self[i][j]\
                     .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
                     .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)\
@@ -177,7 +174,7 @@ class SquareLattice(list):
                     ['u', 'r', 'd'], ['l', 'p'], ['l', 'r'], restrict_mode=False)
                 r1.tensor_multiple(self.env_h[i][j], 'r')
                 big = np.tensor_contract(r1, r2, ['r'], ['l'], {'p': 'p1'}, {'p': 'p2'})
-                big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
+                big = big.tensor_contract(self.Evolution(i,j,i,j+1), ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['l', 'P1'], ['r', 'P2'], ['r', 'l'], full_matrices=False)
 
@@ -204,6 +201,8 @@ class SquareLattice(list):
         for i in range(base, n-1, 2):
             for j in range(m):
                 # i,i+1
+                if 'd' not in self[i][j].legs:
+                    continue
                 self[i][j]\
                     .tensor_multiple(self.env_h[i][j-1], 'l', restrict_mode=False)\
                     .tensor_multiple(self.env_v[i-1][j], 'u', restrict_mode=False)\
@@ -219,7 +218,7 @@ class SquareLattice(list):
                     ['l', 'd', 'r'], ['u', 'p'], ['u', 'd'], restrict_mode=False)
                 r1.tensor_multiple(self.env_v[i][j], 'd')
                 big = np.tensor_contract(r1, r2, ['d'], ['u'], {'p': 'p1'}, {'p': 'p2'})
-                big = big.tensor_contract(self.Evolution, ['p1', 'p2'], ['p1', 'p2'])
+                big = big.tensor_contract(self.Evolution(i,j,i+1,j), ['p1', 'p2'], ['p1', 'p2'])
                 big /= np.linalg.norm(big)
                 u, s, v = big.tensor_svd(['u', 'P1'], ['d', 'P2'], ['d', 'u'], full_matrices=False)
                 thisD = min(self.D, len(s))
