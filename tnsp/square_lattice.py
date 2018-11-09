@@ -170,7 +170,7 @@ class SquareLattice():
         #E_s_file.write('\n')
         #E_s_file.close()
 
-        Grad = [[2.*Prod[i][j]/(real_step) -
-                 2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2 for j in range(m)] for i in range(n)]
+        Grad = [[(2.*Prod[i][j]/(real_step) -
+                 2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2)/(n*m) for j in range(m)] for i in range(n)]
         Energy = sum_E_s/(real_step*n*m)
         return Energy, Grad
