@@ -166,6 +166,7 @@ class SquareLattice():
                 hop_i = next_index % (n-1)
                 self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
                 self.spin[hop_i+1][hop_j] = 1 - self.spin[hop_i+1][hop_j]
+        print('\033[K', end='\r')
         #for i in E_s_list:
         #    E_s_file.write(f'{i} ')
         #E_s_file.write('\n')
