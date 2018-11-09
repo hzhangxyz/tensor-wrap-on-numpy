@@ -140,7 +140,7 @@ class Node(object):
             transposed = self.tensor_transpose([*legs1, *legs2])
             size1 = np.prod(transposed.shape[:len(legs1)], dtype=int)
             size2 = np.prod(transposed.shape[len(legs1):], dtype=int)
-            tensor1, env, tensor2 = tf.svd(tf.reshape(transposed.data, [size1, size2]), *args, **kw)
+            env, tensor1, tensor2 = tf.svd(tf.reshape(transposed.data, [size1, size2]), *args, **kw)
             assert tensor1.shape[0] == size1
             assert tensor2.shape[0] == size2
             tensor1 = tf.reshape(tensor1, [*transposed.shape[:len(legs1)], -1])
