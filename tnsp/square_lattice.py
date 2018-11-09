@@ -138,16 +138,16 @@ class SquareLattice():
         sum_E_s = np.array(0.)
         sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
-        E_s_list = []
-        E_s_file = open(f'{self.save_prefix}/Es.log','a')
+        #E_s_list = []
+        #E_s_file = open(f'{self.save_prefix}/Es.log','a')
         for markov_step in range(self.markov_chain_length):
             print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
             lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
             lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
             res = self.spin_model(self.sess, self.spin, lat, lat_hop)
             real_step += res["step"]
-            for i in range(int(res['step'])):
-                E_s_list.append(res['energy'])
+            #for i in range(int(res['step'])):
+            #    E_s_list.append(res['energy'])
             sum_E_s += res["energy"]*res["step"]
             for i in range(n):
                 for j in range(m):
@@ -165,10 +165,10 @@ class SquareLattice():
                 hop_i = next_index % (n-1)
                 self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
                 self.spin[hop_i+1][hop_j] = 1 - self.spin[hop_i+1][hop_j]
-        for i in E_s_list:
-            E_s_file.write(f'{i} ')
-        E_s_file.write('\n')
-        E_s_file.close()
+        #for i in E_s_list:
+        #    E_s_file.write(f'{i} ')
+        #E_s_file.write('\n')
+        #E_s_file.close()
 
         Grad = [[2.*Prod[i][j]/(real_step) -
                  2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2 for j in range(m)] for i in range(n)]
