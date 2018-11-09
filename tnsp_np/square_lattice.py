@@ -1,7 +1,7 @@
 import time
 import os
 import sys
-import numpy_wrap as np
+from . import numpy_wrap as np
 
 
 class SquareLattice(list):
@@ -33,9 +33,9 @@ class SquareLattice(list):
         output[tuple([slice(i) for i in to_add.shape])] += to_add
         return output
 
-    def __new__(cls, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
+    def __new__(cls, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
         obj = super().__new__(SquareLattice)
-        obj.size = n, m
+        obj.size = size
         obj.D = D
         if load_from != None and not os.path.exists(load_from):
             print(f"{load_from} not found")
@@ -45,13 +45,13 @@ class SquareLattice(list):
 
         return obj
 
-    def __init__(self, n, m, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run", step_print=100):
+    def __init__(self, size, D, step_size, load_from=None, save_prefix="run", step_print=100):
+        n, m = self.size
+        D = self.D
+        
         if self.load_from == None:
-            if mpi_rank == 0:
-                tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
-            else:
-                tmp = None
-            super().__init__(mpi_comm.bcast(tmp, root=0))  # random init
+            tmp = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
+            super().__init__(tmp)  # random init
         else:
             prepare = np.load(load_from)
             print(f'{load_from} loaded')
@@ -60,10 +60,6 @@ class SquareLattice(list):
             self.prepare = prepare
         # 载入lattice信息
 
-        self.D_c = D_c
-        self.scan_time = scan_time
-
-        self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
         self.Hamiltonian = np.tensor(
@@ -137,10 +133,8 @@ class SquareLattice(list):
                                             [f'p_{i}_{j}', f'p_{i+1}_{j}'], ['p1', 'p2'], {}, {'P1': f'p_{i}_{j}', 'P2': f'p_{i+1}_{j}'}, restrict_mode=False)
         return psi.tensor_contract(Hpsi, psi.legs, psi.legs)/psi.tensor_contract(psi, psi.legs, psi.legs)/n/m
 
-    def itebd(self, accurate=False):
+    def itebd(self, cal_energy=False):
         n, m = self.size
-        if mpi_rank != 0:
-            return
         self.__pre_itebd_done_restore()  # 载入后第一次前需要还原
         self.Evolution = self.Identity - self.step_size * self.Hamiltonian
         file = open(f'{self.save_prefix}/SU.log', 'w')
@@ -158,14 +152,13 @@ class SquareLattice(list):
             if t % self.step_print == 0 and t != 0:
                 self.__pre_itebd_done()
                 print("\033[K", end='\r')
-                if accurate:
+                energy = 0
+                if cal_energy:
                     energy = self.accurate_energy().tolist()
-                else:
-                    energy = self.markov_chain(cal_grad=False)[0]
-                print("\033[K", end='\r')
-                file.write(f'{t} {energy}\n')
-                print(t, energy)
-                file.flush()
+                    print("\033[K", end='\r')
+                    file.write(f'{t} {energy}\n')
+                    print(t, energy)
+                    file.flush()
                 self.save(env_v=self.env_v, env_h=self.env_h, energy=energy, name=f'SU.{t}')
                 self.__pre_itebd_done_restore()
             t += 1
