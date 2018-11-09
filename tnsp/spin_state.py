@@ -124,6 +124,7 @@ class SpinState():
         with tf.name_scope('w_s'):
             self.cal_w_s()
         with tf.name_scope('cal_e_s_and_delta_s_and_markov_hop'):
+            print('All other things')
             self.cal_E_s_and_Delta_s_and_markov_hop()
         # res: self.w_s, self.energy, self.grad
 
@@ -146,8 +147,7 @@ class SpinState():
         """
         n, m = self.size
         #E_s_diag = tf.zeros([], dtype=self.TYPE)
-        E_s_diag = []
-        E_s_non_diag = []  # 为相邻两个交换后的w(s)之和
+        E_s = []
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
         markov = []
 
@@ -160,6 +160,7 @@ class SpinState():
         #                E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda: 1., lambda: -1.)
         with tf.name_scope('self_count'):
             self_count = tf.cast(count_hop(self.state, tf.convert_to_tensor([], dtype=tf.int32)), dtype=self.TYPE)
+            minus_1 = tf.convert_to_tensor(-1.)
         # 横向j j+1
         for i in range(n):
             with tf.name_scope(f'mpo_h_{i}'):
@@ -200,14 +201,26 @@ class SpinState():
                                    .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
                                    .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
                                    .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
-                            return res * H[1,2] / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE), tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            return (res * H[1,2] / self.w_s + H[1,1],
+                                    (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE) if config.Hop(i,j,i,j+1) else minus_1)
 
                         def if_cannot_hop():
-                            return tf.zeros([], dtype=self.TYPE), -1., tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
-                        e_s_non_diag_to_append, markov_to_append, e_s_diag_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
-                        E_s_non_diag.append(e_s_non_diag_to_append)
+                            tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
+                            if H[0,3] != 0.0:
+                                res = (l[(j-1) % m]
+                                    .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
+                                    .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+                                    .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                                    .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
+                                    .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+                                    .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                                    .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
+                                tmp += res * H[0,3] / self.w_s
+                            return (tmp,
+                                    minus_1)
+                        e_s_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
                         markov.append(markov_to_append)
-                        E_s_diag.append(e_s_diag_to_append)
+                        E_s.append(e_s_to_append)
         # 纵向i i+1
         for j in range(m):
             with tf.name_scope(f'mpo_v_{j}'):
@@ -240,14 +253,26 @@ class SpinState():
                                    .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
                                    .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
                                    .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
-                            return res * H[1,2] / self.w_s, (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE), tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            return (res * H[1,2] / self.w_s + H[1,1],
+                                    (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE) if config.Hop(i,j,i+1,j) else minus_1)
 
                         def if_cannot_hop():
-                            return tf.zeros([], dtype=self.TYPE), -1., tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
-                        e_s_non_diag_to_append, markov_to_append, e_s_diag_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
-                        E_s_non_diag.append(e_s_non_diag_to_append)
+                            tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
+                            if H[0,3] != 0.0:
+                                res = (u[(i-1) % n]
+                                    .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)
+                                    .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+                                    .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
+                                    .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)
+                                    .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+                                    .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
+                                    .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
+                                tmp += res * H[0,3] / self.w_s
+                            return (tmp,
+                                    minus_1)
+                        e_s_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
                         markov.append(markov_to_append)
-                        E_s_diag.append(e_s_diag_to_append)
+                        E_s.append(e_s_to_append)
 
         with tf.name_scope('markov'):
             self.stay_step, self.next_index = next_hop(markov)
@@ -257,7 +282,7 @@ class SpinState():
             for i in range(n):
                 for j in range(m):
                     Delta_s[i][j] = tf.div(Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m)).data, self.w_s, name=f'grad_{i}_{j}')
-            self.energy = tf.add(sum(E_s_non_diag), sum(E_s_diag), name='e_s')
+            self.energy = tf.reduce_sum(E_s, name='e_s')
             self.grad = Delta_s
 
     def __call__(self, sess, state, lat, lat_hop):

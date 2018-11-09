@@ -33,6 +33,12 @@ Zero = np.array([[ 0, 0, 0, 0],
                  [ 0, 0, 0, 0],
                  [ 0, 0, 0, 0]])/4.
 
+def Hop(a,b,c,d):
+    if a == c and (a+b) % 2 == 1:
+        return False
+    else:
+        return True
+
 def Hamiltonian(a,b,c,d):
     if a == c:
         if (a+b) % 2 == 0:
@@ -44,3 +50,7 @@ def Hamiltonian(a,b,c,d):
             return Sy
         else:
             return Sx
+
+
+#def Hamiltonian(a,b,c,d):
+#    return Sx+Sy+Sz
