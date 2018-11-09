@@ -5,14 +5,10 @@ import tensorflow as tf
 class Node(object):
     """
     支持的操作
-    - getitem
-    - 数乘
-    - 相同shape相加
-    - neg
 
-    转置
-
+    - transpose
     - contract
+    - multiple
     - svd
     - qr
     """
@@ -20,7 +16,7 @@ class Node(object):
     def rename_legs(self, legs_dict, restrict_mode=True):
         for i, j in legs_dict.items():
             if str(i) in self.legs:
-                self.legss[self.legs.index(i)] = j
+                self.legs[self.legs.index(i)] = j
             else:
                 if restrict_mode:
                     raise Exception("leg not found")
