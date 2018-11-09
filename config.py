@@ -10,10 +10,10 @@ def get_lattice_node_leg(i, j, n, m):
         legs = legs.replace('l', '')
     if j == m-1:
         legs = legs.replace('r', '')
-    if (i+j) % 2 == 0:
-        legs = legs.replace('l', '')
-    else:
-        legs = legs.replace('r', '')
+    #if (i+j) % 2 == 0:
+    #    legs = legs.replace('l', '')
+    #else:
+    #    legs = legs.replace('r', '')
     return legs
 
 Sz = np.array([[ 1, 0, 0, 0],
@@ -28,10 +28,17 @@ Sy = np.array([[ 0, 0, 0,-1],
                [ 0, 0, 1, 0],
                [ 0, 1, 0, 0],
                [-1, 0, 0, 0]])/4.
+Zero = np.array([[ 0, 0, 0, 0],
+                 [ 0, 0, 0, 0],
+                 [ 0, 0, 0, 0],
+                 [ 0, 0, 0, 0]])/4.
 
 def Hamiltonian(a,b,c,d):
     if a == c:
-        return Sz
+        if (a+b) % 2 == 0:
+            return Sz
+        else:
+            return Zero
     else:
         if (a+b) % 2 == 0:
             return Sy
