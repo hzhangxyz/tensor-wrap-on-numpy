@@ -198,7 +198,7 @@ class SquareLattice():
                 sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
         if mpi_rank == 0:
             Grad = [[(2.*Prod[i][j]/(real_step) -
-                      2.*sum_E_s*sum_Delta_s[i][j]/(real_step)**2)/(n*m) for j in range(m)] for i in range(n)]
+                      2.*sum_E_s*sum_Delta_s[i][j]/(real_step*real_step))/(n*m) for j in range(m)] for i in range(n)]
             Energy = sum_E_s/(real_step*n*m)
             return Energy, Grad
         else:

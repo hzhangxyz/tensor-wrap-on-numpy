@@ -193,30 +193,32 @@ class SpinState():
                 with tf.name_scope('H_ss'):
                     for j in range(m-1):
                         H = Hamiltonian(i,j,i,j+1)
+                        get_res = lambda :(l[(j-1) % m]
+                                           .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
+                                           .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+                                           .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                                           .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
+                                           .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
+                                           .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
+                                           .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
                         def if_can_hop():
-                            res = (l[(j-1) % m]
-                                   .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
-                                   .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
-                                   .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
-                                   .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
-                                   .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
-                                   .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
-                                   .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
-                            return (res * H[1,2] / self.w_s + H[1,1],
+                            tmp = tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            if H[1,2] != 0.0:
+                                res = get_res()
+                                tmp += res * H[1,2] / self.w_s
+                            else:
+                                if config.Hop(i,j,i,j+1):
+                                    res = get_res()
+                            return (tmp,
                                     (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE) if config.Hop(i,j,i,j+1) else minus_1)
 
                         def if_cannot_hop():
                             tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
                             if H[0,3] != 0.0:
-                                res = (l[(j-1) % m]
-                                    .tensor_contract(self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
-                                    .tensor_contract(self.lat_hop[i][j], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
-                                    .tensor_contract(self.DownToUp[(i+1) % n][j], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
-                                    .tensor_contract(self.UpToDown[(i-1) % n][(j+1) % m], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)
-                                    .tensor_contract(self.lat_hop[i][(j+1) % m], ['r2', 'd'], ['l', 'u'], {}, {'r': 'r2'}, restrict_mode=False)
-                                    .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
-                                    .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
+                                res = get_res()
                                 tmp += res * H[0,3] / self.w_s
+                            else:
+                                pass
                             return (tmp,
                                     minus_1)
                         e_s_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
@@ -245,30 +247,32 @@ class SpinState():
                 with tf.name_scope('H_ss'):
                     for i in range(n-1):
                         H = Hamiltonian(i,j,i+1,j)
+                        get_res = lambda :(u[(i-1) % n]
+                                           .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)
+                                           .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+                                           .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
+                                           .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)
+                                           .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
+                                           .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
+                                           .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
                         def if_can_hop():
-                            res = (u[(i-1) % n]
-                                   .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)
-                                   .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
-                                   .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
-                                   .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)
-                                   .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
-                                   .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
-                                   .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
-                            return (res * H[1,2] / self.w_s + H[1,1],
+                            tmp = tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            if H[1,2] != 0.0:
+                                res = get_res()
+                                tmp += res * H[1,2] / self.w_s
+                            else:
+                                if config.Hop(i,j,i+1,j):
+                                    res = get_res()
+                            return (tmp,
                                     (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE) if config.Hop(i,j,i+1,j) else minus_1)
 
                         def if_cannot_hop():
                             tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
                             if H[0,3] != 0.0:
-                                res = (u[(i-1) % n]
-                                    .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)
-                                    .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
-                                    .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
-                                    .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)
-                                    .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
-                                    .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
-                                    .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
+                                res = get_res()
                                 tmp += res * H[0,3] / self.w_s
+                            else:
+                                pass
                             return (tmp,
                                     minus_1)
                         e_s_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
