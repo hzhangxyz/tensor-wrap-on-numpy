@@ -172,6 +172,11 @@ class SquareLattice():
                 for j in range(m):
                     sum_Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
                     Prod[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]*res["energy"]
+            next_index = res["next"]
+            hop_i = next_index // m
+            hop_j = next_index % m
+            self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
+            """
             if res["next"] < n*(m-1):
                 next_index = res["next"]
                 hop_i = next_index // (m-1)
@@ -184,6 +189,7 @@ class SquareLattice():
                 hop_i = next_index % (n-1)
                 self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
                 self.spin[hop_i+1][hop_j] = 1 - self.spin[hop_i+1][hop_j]
+            """
         print('\033[K', end='\r')
         #for i in E_s_list:
         #    E_s_file.write(f'{i} ')

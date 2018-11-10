@@ -188,6 +188,8 @@ class SpinState():
                             Node.tensor_contract(l[(j-1) % m], self.UpToDown[(i-1) % n][j], ['r1'], ['l'], {'r2': 'l'}, {'r': 'r1', 'd': 'u'}, restrict_mode=False),
                             Node.tensor_contract(r[(j+1) % m], self.DownToUp[(i+1) % n][j], ['l3'], ['r'], {'l2': 'r'}, {'l': 'l3', 'u': 'd'}, restrict_mode=False),
                             ['r1', 'r3'], ['l1', 'l3'], restrict_mode=False)
+                        wss = Delta_s[i][j].tensor_contract(self.lat_hop[i][j], ['l','r','u','d'], ['l', 'r', 'u', 'd'], restrict_mode=False).data
+                        markov.append((wss*wss)/(self.w_s*self.w_s))
 
                 # 计算Es
                 with tf.name_scope('H_ss'):
@@ -207,10 +209,8 @@ class SpinState():
                                 res = get_res()
                                 tmp += res * H[1,2] / self.w_s
                             else:
-                                if config.Hop(i,j,i,j+1):
-                                    res = get_res()
-                            return (tmp,
-                                    (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i, j+1]]), dtype=self.TYPE) if config.Hop(i,j,i,j+1) else minus_1)
+                                pass
+                            return tmp
 
                         def if_cannot_hop():
                             tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
@@ -219,10 +219,8 @@ class SpinState():
                                 tmp += res * H[0,3] / self.w_s
                             else:
                                 pass
-                            return (tmp,
-                                    minus_1)
-                        e_s_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
-                        markov.append(markov_to_append)
+                            return tmp
+                        e_s_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i][j+1]), if_can_hop, if_cannot_hop)
                         E_s.append(e_s_to_append)
         # 纵向i i+1
         for j in range(m):
@@ -261,10 +259,8 @@ class SpinState():
                                 res = get_res()
                                 tmp += res * H[1,2] / self.w_s
                             else:
-                                if config.Hop(i,j,i+1,j):
-                                    res = get_res()
-                            return (tmp,
-                                    (res*res) / (self.w_s*self.w_s) * self_count / tf.cast(count_hop(self.state, [[i, j], [i+1, j]]), dtype=self.TYPE) if config.Hop(i,j,i+1,j) else minus_1)
+                                pass
+                            return tmp
 
                         def if_cannot_hop():
                             tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
@@ -273,10 +269,8 @@ class SpinState():
                                 tmp += res * H[0,3] / self.w_s
                             else:
                                 pass
-                            return (tmp,
-                                    minus_1)
-                        e_s_to_append, markov_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
-                        markov.append(markov_to_append)
+                            return tmp
+                        e_s_to_append = tf.cond(tf.not_equal(self.state[i][j], self.state[i+1][j]), if_can_hop, if_cannot_hop)
                         E_s.append(e_s_to_append)
 
         with tf.name_scope('markov'):
