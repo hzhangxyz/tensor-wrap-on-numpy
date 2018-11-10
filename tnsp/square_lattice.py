@@ -11,7 +11,7 @@ from .spin_state import SpinState, get_lattice_node_leg
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
-print("mpi info:", mpi_rank, "/", mpi_size)
+#print("mpi info:", mpi_rank, "/", mpi_size)
 
 class SquareLattice():
 
