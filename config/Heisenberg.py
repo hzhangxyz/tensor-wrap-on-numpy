@@ -1,4 +1,4 @@
-# Kitaev Model
+# Heisenberg Model
 
 import numpy as np
 
