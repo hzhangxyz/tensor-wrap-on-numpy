@@ -1,7 +1,8 @@
 __pycache__
 run
 run.*
-.idea
+.run
+.run.*
 .coverage
 htmlcov
 *log
