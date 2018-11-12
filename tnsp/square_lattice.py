@@ -124,26 +124,35 @@ class SquareLattice():
             os.rename(f'{self.save_prefix}/last.npz', f'{self.save_prefix}/bak.npz')
         os.symlink(f'{prepare["name"]}.npz', f'{self.save_prefix}/last.npz')
 
+    @property
+    def spin_str(self):
+        tmp = np.array(self.spin).reshape([-1])
+        return "".join(map(str,tmp))
+
     def grad_descent(self, sess):
         n, m = self.size
         t = 0
         self.sess = sess
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
+        total_spin = set()
         while True:
             energy, grad = self.markov_chain()
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
+            gather_spin_set = mpi_comm.gather(self.spin_set, root=0)
             if mpi_rank == 0:
                 for i in range(n):
                     for j in range(m):
                         self.lattice[i][j] -= self.step_size*grad[i][j]
+                for i in gather_spin_set:
+                    total_spin |= set(i)
                 spin_dict = {}
                 for i, s in enumerate(gather_spin):
                     spin_dict[f'spin_{i}'] = s
                 self.save(energy=energy, name=f'GM.{t}', **spin_dict)
-                file.write(f'{t} {energy}\n')
+                file.write(f'{t} {self.markov_dupli} {len(total_spin)} {energy}\n')
                 file.flush()
-                print(t, energy)
+                print(t, "%5.2f"%self.markov_dupli, len(total_spin), energy)
             for i in range(n):
                 for j in range(m):
                     self.lattice[i][j] = mpi_comm.bcast(self.lattice[i][j], root=0)
@@ -159,6 +168,7 @@ class SquareLattice():
         Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         #E_s_list = []
         #E_s_file = open(f'{self.save_prefix}/Es.log','a')
+        self.spin_set = []
         for markov_step in range(self.markov_chain_length):
             print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
             lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
@@ -176,6 +186,7 @@ class SquareLattice():
             hop_i = next_index // m
             hop_j = next_index % m
             self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
+            self.spin_set.append(self.spin_str)
             """
             if res["next"] < n*(m-1):
                 next_index = res["next"]
@@ -203,7 +214,7 @@ class SquareLattice():
                 Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
                 sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
         if mpi_rank == 0:
-            print("%5.2f"%(real_step/(mpi_size*self.markov_chain_length)), end=' ')
+            self.markov_dupli = real_step/(mpi_size*self.markov_chain_length)
             Grad = [[(2.*Prod[i][j]/(real_step) -
                       2.*sum_E_s*sum_Delta_s[i][j]/(real_step*real_step))/(n*m) for j in range(m)] for i in range(n)]
             Energy = sum_E_s/(real_step*n*m)
