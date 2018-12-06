@@ -40,11 +40,11 @@ class SquareLattice():
         else:
             self.prepare = np.load(load_from)
             if mpi_rank==0:
+                print(f'{load_from} loaded')
                 self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
             else:
                 self.lattice = None
             self.lattice = mpi_comm.bcast(self.lattice, root=0)
-            print(f'{load_from} loaded')
         # 载入lattice信息
 
         self.D_c = D_c
