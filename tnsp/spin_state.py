@@ -145,6 +145,11 @@ class SpinState():
         E_s=\sum_{s'} W(s')/W(s) H_{ss'}
         第一部分:对角
         第二部分:交换
+        H current allow:
+        OK       OK
+           OK OK
+           XX XX
+        XX       XX
         """
         n, m = self.size
         #E_s_diag = tf.zeros([], dtype=self.TYPE)
@@ -152,13 +157,6 @@ class SpinState():
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
         markov = []
 
-        #with tf.name_scope('e_s_diag_and_self_count'):
-        #    for i in range(n):
-        #        for j in range(m):
-        #            if j != m-1:
-        #                E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i][j+1]), lambda: 1., lambda: -1.)
-        #            if i != n-1:
-        #                E_s_diag += tf.cond(tf.equal(self.state[i][j], self.state[i+1][j]), lambda: 1., lambda: -1.)
         with tf.name_scope('self_count'):
             self_count = tf.cast(count_hop(self.state, tf.convert_to_tensor([], dtype=tf.int32)), dtype=self.TYPE)
             minus_1 = tf.convert_to_tensor(-1.)
@@ -276,7 +274,6 @@ class SpinState():
         with tf.name_scope('markov'):
             self.stay_step, self.next_index = next_hop(markov)
 
-        #E_s = E_s_diag + E_s_non_diag
         with tf.name_scope('res'):
             for i in range(n):
                 for j in range(m):
