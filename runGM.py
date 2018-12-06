@@ -4,9 +4,9 @@ from mpi4py import MPI
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
-print("mpi info:", mpi_rank, "/", mpi_size)
 mpi_comm.Barrier()
 if mpi_rank==0:
+    print("核数: ", mpi_size)
     print('载入程序中')
 
 import os
