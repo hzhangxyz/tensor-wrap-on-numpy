@@ -102,7 +102,7 @@ class SquareLattice():
             if self.load_from is not None:
                 os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
             file = open(f'{self.save_prefix}/parameter', 'w')
-            file.write(str(sys.argv))
+            file.write(f'mpirun -n {mpi_size} python {" ".join(sys.argv)}')
             file.close()
             split_name = os.path.split(self.save_prefix)
             if os.path.exists(f'{split_name[0]}/last'):
