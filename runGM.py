@@ -6,8 +6,7 @@ mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
 mpi_comm.Barrier()
 if mpi_rank==0:
-    print("核数: ", mpi_size)
-    print('载入程序中')
+    print("mpi_rank: ", mpi_size)
 
 import os
 import time
@@ -33,17 +32,7 @@ if args.continued and args.load_from != None:
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
 
-mpi_comm.Barrier()
-if mpi_rank==0:
-    print('载入程序既')
-    print('构建网络中')
-
 sl = SquareLattice([args.n, args.m], D=args.D, D_c=args.D_c, scan_time=args.scan_time, step_size=args.step_size, markov_chain_length=args.markov, load_from=args.load_from, save_prefix=args.save_prefix)
-
-mpi_comm.Barrier()
-if mpi_rank == 0:
-    print('构建网络既')
-    print('创建session中')
 
 config = tf.ConfigProto()
 config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_2
@@ -51,10 +40,6 @@ config.intra_op_parallelism_threads = 1
 config.inter_op_parallelism_threads = 1
 config.device_count['GPU'] = 0
 sess = tf.Session(config=config)
-
-mpi_comm.Barrier()
-if mpi_rank == 0:
-    print('创建session既')
 
 start = time.time()
 sl.grad_descent(sess)
