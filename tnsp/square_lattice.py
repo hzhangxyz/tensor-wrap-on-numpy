@@ -136,7 +136,10 @@ class SquareLattice():
             if mpi_rank == 0:
                 for i in range(n):
                     for j in range(m):
-                        self.lattice[i][j] -= self.step_size*grad[i][j]
+                        med = np.median(abs(grad[i][j]))
+                        delta = (grad[i][j] > med) * np.random.rand(*grad[i][j].shape) -\
+                            (grad[i][j] < -med) * np.random.rand(*grad[i][j].shape)
+                        self.lattice[i][j] -= self.step_size*delta
                 spin_dict = {}
                 for i, s in enumerate(gather_spin):
                     spin_dict[f'spin_{i}'] = s
