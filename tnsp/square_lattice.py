@@ -39,8 +39,9 @@ class SquareLattice():
             self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
         else:
             self.prepare = np.load(load_from)
-            print(f'{load_from} loaded')
+            mpi_comm.Barrier()
             if mpi_rank==0:
+                print(f'{load_from} loaded')
                 self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
             else:
                 self.lattice = None

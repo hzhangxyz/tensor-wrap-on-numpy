@@ -185,7 +185,7 @@ class SquareLattice(list):
                 self[i][j+1] = v[:thisD, :, :]\
                     .tensor_contract(tmp_right, ['r'], ['l'], {'P2': 'p'})
                 legs = self[i][j+1].legs
-                #self[i][j+1] = self[i][j+1].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
+                self[i][j+1] = self[i][j+1].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_v[i-1][j], 'u', restrict_mode=False)\
@@ -228,7 +228,7 @@ class SquareLattice(list):
                 self[i+1][j] = v[:thisD, :, :]\
                     .tensor_contract(tmp_down, ['d'], ['u'], {'P2': 'p'})
                 legs = self[i+1][j].legs
-                #self[i+1][j] = self[i+1][j].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
+                self[i+1][j] = self[i+1][j].tensor_transpose([*legs[1], *legs[0], *legs[2:]])
 
                 self[i][j]\
                     .tensor_multiple(1/self.env_h[i][j-1], 'l', restrict_mode=False)\

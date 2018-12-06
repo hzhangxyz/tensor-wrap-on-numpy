@@ -308,12 +308,8 @@ class SpinState():
                 with tf.name_scope(f"UpToDown_{i}"):
                     initial = [None for j in range(m)]
                     for j in range(m):
-                        if j == 0:
-                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'r'])
-                        elif j == m-1:
-                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['d', 'l'])
-                        else:
-                            initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['d', 'l', 'r'])
+                        legs = get_lattice_node_leg(i, j, n, m).replace('u','').replace('d','')
+                        initial[j] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['d', *legs])
                     self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
             self.UpToDown[n-1] = [Node(1.) for j in range(m)]
 
@@ -326,12 +322,8 @@ class SpinState():
                 with tf.name_scope(f"DownToUp_{i}"):
                     initial = [None for j in range(m)]
                     for j in range(m):
-                        if j == 0:
-                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'r'])
-                        elif j == m-1:
-                            initial[j] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['u', 'l'])
-                        else:
-                            initial[j] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['u', 'l', 'r'])
+                        legs = get_lattice_node_leg(i, j, n, m).replace('d','').replace('u','')
+                        initial[j] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['u', *legs])
                     self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
             self.DownToUp[0] = [Node(1.) for j in range(m)]
 
@@ -344,12 +336,8 @@ class SpinState():
                 with tf.name_scope(f"LeftToRight_{j}"):
                     initial = [None for j in range(n)]
                     for i in range(n):
-                        if i == 0:
-                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'd'])
-                        elif i == n-1:
-                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['r', 'u'])
-                        else:
-                            initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['r', 'd', 'u'])
+                        legs = get_lattice_node_leg(i, j, n, m).replace('l','').replace('r','')
+                        initial[i] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['r', *legs])
                     self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
                                                              L='u', R='d', U='l', D='r', scan_time=self.scan_time)
             self.LeftToRight[m-1] = [Node(1.) for i in range(n)]
@@ -365,12 +353,8 @@ class SpinState():
                 with tf.name_scope(f"RightToLeft_{j}"):
                     initial = [None for j in range(n)]
                     for i in range(n):
-                        if i == 0:
-                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'd'])
-                        elif i == n-1:
-                            initial[i] = Node(tf.random_uniform([self.D, self.D_c], dtype=self.TYPE), legs=['l', 'u'])
-                        else:
-                            initial[i] = Node(tf.random_uniform([self.D, self.D_c, self.D_c], dtype=self.TYPE), legs=['l', 'd', 'u'])
+                        legs = get_lattice_node_leg(i, j, n, m).replace('r','').replace('l','')
+                        initial[i] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['l', *legs])
                     self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
                                                              L='u', R='d', U='r', D='l', scan_time=self.scan_time)
             self.RightToLeft[0] = [Node(1.) for i in range(n)]
