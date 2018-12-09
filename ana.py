@@ -8,8 +8,8 @@ from matplotlib import pyplot as plt
 try:
     folder_name = sys.argv[1]
 except:
-    folder_name = 'run'
-name = f"./{folder_name}/last/"
+    folder_name = 'run/last'
+name = f"./{folder_name}/"
 
 def handle_close(evt):
     exit()
