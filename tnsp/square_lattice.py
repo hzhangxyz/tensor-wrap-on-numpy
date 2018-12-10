@@ -138,7 +138,7 @@ class SquareLattice():
                 total_l = np.array(0)
                 for i in range(n):
                     for j in range(n):
-                        total_l += grad[i][j] * grad[i][j]
+                        total_l += np.sum(grad[i][j] * grad[i][j])
                 total_l = np.sqrt(total_l/(n*m))
                 for i in range(n):
                     for j in range(m):
