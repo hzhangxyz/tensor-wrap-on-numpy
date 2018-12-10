@@ -122,6 +122,7 @@ class SquareLattice():
 
             if mpi_rank == 0:
                 # 梯度下降
+                """
                 grad_norm = np.array(0.)
                 data_num = 0
                 for i in range(n):
@@ -129,6 +130,13 @@ class SquareLattice():
                         grad_norm += np.sum(grad[i][j] * grad[i][j])
                         data_num += grad[i][j].size
                 grad_norm = np.sqrt(grad_norm/data_num)
+                """
+                grad_norm = np.array(0.)
+                for i in range(n):
+                    for j in range(m):
+                        tmp = np.max(np.abs(grad[i][j]))
+                        if tmp > grad_norm:
+                            grad_norm = tmp
                 for i in range(n):
                     for j in range(m):
                         self.lattice[i][j] -= self.step_size*grad[i][j]/grad_norm
