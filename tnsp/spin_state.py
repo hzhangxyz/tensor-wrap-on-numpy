@@ -6,12 +6,13 @@ import numpy as np
 import tensorflow as tf
 from .tensor_node import Node
 
-
+# 载入两个算子，count_hop和next_hop
 count_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'count_hop.so')
 next_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'next_hop.so')
 count_hop = tf.load_op_library(count_hop_path).count_hop
 next_hop = tf.load_op_library(next_hop_path).next_hop
 
+# 载入配置文件，里面有哈密顿量和边的连接方式，现在边的链接方式还有问题
 spec = importlib.util.spec_from_file_location("config", "./config.py")
 config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
@@ -83,11 +84,13 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
 class SpinState():
 
     def __init__(self, size, D, D_c, scan_time, TYPE=tf.float32):
+        # 保存一些小数据
         self.size = size
         self.D = D
-        self.TYPE = tf.float32
+        self.TYPE = TYPE
         n, m = self.size
 
+        # 生成state，lat，lat_hop的place_holder
         def gen_place_holder(i, j, prefix):
             legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
             return Node(tf.placeholder(self.TYPE, shape=[self.D for i in legs], name=f'{prefix}_{i}_{j}'), legs)
@@ -99,35 +102,17 @@ class SpinState():
             with tf.name_scope('lat_hop'):
                 self.lat_hop = [[gen_place_holder(i, j, prefix='lat_hop') for j in range(m)] for i in range(n)]
 
-        """
-        print()
-        for i in range(n):
-            for j in range(m):
-                print('O', end='')
-                if 'r' in self.lat[i][j].legs:
-                    print('-', end='')
-                else:
-                    print(' ', end='')
-            print()
-            for j in range(m):
-                if 'd' in self.lat[i][j].legs:
-                    print('|', end='')
-                else:
-                    print(' ', end='')
-                print(' ', end='')
-            print()
-        """
-
+        # 保存另外一些小数据
         self.D_c = D_c
         self.scan_time = scan_time
 
+        # 生成辅助矩阵，并计算ws和其他所有东西
         with tf.name_scope('aux'):
             self.__auxiliary()
         with tf.name_scope('w_s'):
             self.cal_w_s()
         with tf.name_scope('cal_e_s_and_delta_s_and_markov_hop'):
             self.cal_E_s_and_Delta_s_and_markov_hop()
-        # res: self.w_s, self.energy, self.grad
 
     def cal_w_s(self):
         n, m = self.size
@@ -141,28 +126,23 @@ class SpinState():
         assert self.w_s != 0., "w_s == 0"
 
     def cal_E_s_and_Delta_s_and_markov_hop(self):
-        """
-        E_s=\sum_{s'} W(s')/W(s) H_{ss'}
-        第一部分:对角
-        第二部分:交换
-        H current allow:
-        OK       OK
-           OK OK
-           XX XX
-        XX       XX
-        """
+        # E_s=\sum_{s'} W(s')/W(s) H_{ss'}
+        # H current allow:
+        # OK       OK
+        #    OK OK
+        #    XX XX
+        # XX       XX
+
+        # 初始化三个输出，能量，梯度，markov的pool
         n, m = self.size
-        #E_s_diag = tf.zeros([], dtype=self.TYPE)
         E_s = []
         Delta_s = [[None for j in range(m)] for i in range(n)]  # 下面每个点记录一下
         markov = []
 
-        with tf.name_scope('self_count'):
-            self_count = tf.cast(count_hop(self.state, tf.convert_to_tensor([], dtype=tf.int32)), dtype=self.TYPE)
-            minus_1 = tf.convert_to_tensor(-1.)
         # 横向j j+1
         for i in range(n):
             with tf.name_scope(f'mpo_h_{i}'):
+                # 计算单列的辅助矩阵
                 l = [None for j in range(m)]
                 l[-1] = Node(1.)
                 r = [None for j in range(m)]
@@ -179,7 +159,8 @@ class SpinState():
                             .tensor_contract(self.UpToDown[(i-1) % n][j], ['l1'], ['r'], {}, {'l': 'l1'}, restrict_mode=False)\
                             .tensor_contract(self.lat[i][j], ['l2', 'd'], ['r', 'u'], {}, {'l': 'l2'}, restrict_mode=False)\
                             .tensor_contract(self.DownToUp[(i+1) % n][j], ['l3', 'd'], ['r', 'u'], {}, {'l': 'l3'}, restrict_mode=False)
-                # 计算 delta
+
+                # 计算 delta, 填入lat_hop就是hop概率
                 with tf.name_scope('grad'):
                     for j in range(m):
                         Delta_s[i][j] = Node.tensor_contract(
@@ -223,6 +204,7 @@ class SpinState():
         # 纵向i i+1
         for j in range(m):
             with tf.name_scope(f'mpo_v_{j}'):
+                # 计算单列的辅助矩阵
                 u = [None for i in range(n)]
                 u[-1] = Node(1.)
                 d = [None for i in range(n)]
@@ -252,7 +234,9 @@ class SpinState():
                                            .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
                                            .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
                         def if_can_hop():
+                            # H(1,1)
                             tmp = tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            # H(1,2)
                             if H[1,2] != 0.0:
                                 res = get_res()
                                 tmp += res * H[1,2] / self.w_s
@@ -261,7 +245,9 @@ class SpinState():
                             return tmp
 
                         def if_cannot_hop():
+                            # H(0,0)
                             tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
+                            # H(0,3)
                             if H[0,3] != 0.0:
                                 res = get_res()
                                 tmp += res * H[0,3] / self.w_s

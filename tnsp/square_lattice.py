@@ -23,11 +23,11 @@ class SquareLattice():
         legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
         if input.shape != (2, *[self.D for i in legs]):
             print('Warning: shape of node incorrect at',i,j,legs,input.shape,(2, *[self.D for i in legs]))
-        #output[tuple([slice(i) for i in input.shape])] += input
         output = input
         return output
 
     def __init__(self, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
+        # 保存各类参数
         n, m = self.size = size
         self.D = D
         if load_from != None and not os.path.exists(load_from):
@@ -35,6 +35,7 @@ class SquareLattice():
             load_from = None
         self.load_from = load_from
 
+        # 载入lattice信息
         if self.load_from == None:
             self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
         else:
@@ -45,7 +46,6 @@ class SquareLattice():
             else:
                 self.lattice = None
             self.lattice = mpi_comm.bcast(self.lattice, root=0)
-        # 载入lattice信息
 
         self.D_c = D_c
         self.scan_time = scan_time
@@ -53,20 +53,10 @@ class SquareLattice():
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
-        """
-        self.Hamiltonian = np.tensor(
-            np.array([1, 0, 0, 0, 0, -1, 2, 0, 0, 2, -1, 0, 0, 0, 0, 1])
-            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])/4.
-        self.Identity = np.tensor(
-            np.identity(4)
-            .reshape([2, 2, 2, 2]), legs=['p1', 'p2', 'P1', 'P2'])
-        """
-
-        # 保存参数
-
         self.TYPE = tf.float32
         self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=self.TYPE)
 
+        # 生成或者载入spin构形
         def default_spin():
             return np.array([[0 if (i+j) % 2 == 0 else 1 for j in range(m)] for i in range(n)])
         if self.load_from == None:
@@ -76,25 +66,8 @@ class SquareLattice():
                 self.spin = self.prepare[f'spin_{mpi_rank}']
             else:
                 self.spin = default_spin()
-        # 准备spin state
 
-        """
-        self.env_v = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        self.env_h = [[np.ones(self.D) for j in range(m)] for i in range(n)]
-        for i in range(n):
-            self.env_h[i][m-1] = np.array(1)
-        for j in range(m):
-            self.env_v[n-1][j] = np.array(1)
-        if self.load_from != None and "env_v" in self.prepare and "env_h" in self.prepare:
-            for i in range(n):
-                for j in range(m):
-                    if i != n-1:
-                        self.env_v[i][j][:len(self.prepare["env_v"][i][j])] = self.prepare["env_v"][i][j]
-                    if j != m-1:
-                        self.env_h[i][j][:len(self.prepare["env_h"][i][j])] = self.prepare["env_h"][i][j]
-        # 准备su用的环境
-        """
-
+        # 文件记录
         if mpi_rank == 0:
             self.save_prefix = time.strftime(f"{save_prefix}/%Y%m%d%H%M%S", time.gmtime())
             print(f"save_prefix={self.save_prefix}")
@@ -109,7 +82,6 @@ class SquareLattice():
             if os.path.exists(f'{split_name[0]}/last'):
                 os.remove(f'{split_name[0]}/last')
             os.symlink(split_name[1], f'{split_name[0]}/last')
-        # 文件记录
 
     def save(self, **prepare):
         # prepare 里需要有name
@@ -117,7 +89,6 @@ class SquareLattice():
         for i in range(n):
             for j in range(m):
                 prepare[f'node_{i}_{j}'] = self.lattice[i][j]
-                #prepare[f'legs_{i}_{j}'] = ['p', *get_lattice_node_leg(i, j, self.size[0], self.size[1])]
         np.savez_compressed(f'{self.save_prefix}/{prepare["name"]}.npz', **prepare)
         if os.path.exists(f'{self.save_prefix}/bak.npz'):
             os.remove(f'{self.save_prefix}/bak.npz')
@@ -126,24 +97,31 @@ class SquareLattice():
         os.symlink(f'{prepare["name"]}.npz', f'{self.save_prefix}/last.npz')
 
     def grad_descent(self, sess):
+        # 载入格子大小，建立session，文件输出这一些杂事
         n, m = self.size
         t = 0
         self.sess = sess
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
         while True:
+            # 每个核各跑一根markov chain
             energy, grad = self.markov_chain()
+
+            # 统计构形信息，用来保存到文件
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
+
             if mpi_rank == 0:
+                # 梯度下降
                 total_l = np.array(0.)
                 for i in range(n):
-                    for j in range(n):
+                    for j in range(m):
                         total_l += np.sum(grad[i][j] * grad[i][j])
                 total_l = np.sqrt(total_l/(n*m))
                 for i in range(n):
                     for j in range(m):
                         self.lattice[i][j] -= self.step_size*grad[i][j]/total_l
 
+                # 文件保存，包括自旋构形
                 spin_dict = {}
                 for i, s in enumerate(gather_spin):
                     spin_dict[f'spin_{i}'] = s
@@ -151,64 +129,58 @@ class SquareLattice():
                 file.write(f'{t} {energy}\n')
                 file.flush()
                 print(t, energy)
+
+            # 将波函数广播回去
             for i in range(n):
                 for j in range(m):
                     self.lattice[i][j] = mpi_comm.bcast(self.lattice[i][j], root=0)
             t += 1
-            #if t==20:
-            #    break
 
     def markov_chain(self):
+        # 载入格子大小
         n, m = self.size
+
+        # 四个求和项目，step，能量，梯度，能量梯度积
         real_step = np.array(0.)
         sum_E_s = np.array(0.)
         sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
         Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
-        #E_s_list = []
-        #E_s_file = open(f'{self.save_prefix}/Es.log','a')
+
         for markov_step in range(self.markov_chain_length):
             print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
+
+            # 准备送给TF的数据
             lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
             lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
+
+            # 调用TF
             res = self.spin_model(self.sess, self.spin, lat, lat_hop)
+
+            # 累加四个变量
             real_step += res["step"]
-            #for i in range(int(res['step'])):
-            #    E_s_list.append(res['energy'])
             sum_E_s += res["energy"]*res["step"]
             for i in range(n):
                 for j in range(m):
                     sum_Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
                     Prod[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]*res["energy"]
+
+            # hop构形
             next_index = res["next"]
             hop_i = next_index // m
             hop_j = next_index % m
             self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
-            """
-            if res["next"] < n*(m-1):
-                next_index = res["next"]
-                hop_i = next_index // (m-1)
-                hop_j = next_index % (m-1)
-                self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
-                self.spin[hop_i][hop_j+1] = 1 - self.spin[hop_i][hop_j+1]
-            else:
-                next_index = res["next"] - n*(m-1)
-                hop_j = next_index // (n-1)
-                hop_i = next_index % (n-1)
-                self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
-                self.spin[hop_i+1][hop_j] = 1 - self.spin[hop_i+1][hop_j]
-            """
-        print('\033[K', end='\r')
-        #for i in E_s_list:
-        #    E_s_file.write(f'{i} ')
-        #E_s_file.write('\n')
-        #E_s_file.close()
 
+        print('\033[K', end='\r')
+
+        # 通过MPI对折四个变量求和
         real_step = mpi_comm.reduce(real_step, root=0)
         sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
         for i in range(n):
             for j in range(m):
                 Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
                 sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
+
+        # 最后一点处理并返回
         if mpi_rank == 0:
             print("%5.2f"%(real_step/(mpi_size*self.markov_chain_length)), end=' ')
             Grad = [[(2.*Prod[i][j]/(real_step) -
