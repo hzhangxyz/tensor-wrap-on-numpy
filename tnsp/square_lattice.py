@@ -26,26 +26,35 @@ class SquareLattice():
         output = input
         return output
 
+    def __root_print(self, *args, **kw):
+        if mpi_rank==0:
+            print(*args, **kw)
+
     def __init__(self, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
         # 保存各类参数
         n, m = self.size = size
         self.D = D
-        if load_from != None and not os.path.exists(load_from):
-            print(f"{load_from} not found")
-            load_from = None
-        self.load_from = load_from
+        if load_from == None:
+            self.load_from = None
+        else:
+            if not os.path.exists(load_from):
+                self.load_from = None
+                self.__root_print(f"{load_from} not found")
+            else:
+                self.load_from = load_from
+                if mpi_rank==0:
+                    self.prepare = np.load(load_from)
+                self.__root_print(f"{load_from} loaded")
 
         # 载入lattice信息
-        if self.load_from == None:
-            self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
-        else:
-            self.prepare = np.load(load_from)
-            if mpi_rank==0:
-                print(f'{load_from} loaded')
-                self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
+        if mpi_rank==0:
+            if self.load_from == None:
+                self.lattice = [[self.__create_node(i, j) for j in range(m)] for i in range(n)]
             else:
-                self.lattice = None
-            self.lattice = mpi_comm.bcast(self.lattice, root=0)
+                self.lattice = [[self.__check_shape(self.prepare[f'node_{i}_{j}'], i, j) for j in range(m)] for i in range(n)]
+        else:
+            self.lattice = None
+        self.lattice = mpi_comm.bcast(self.lattice, root=0)
 
         self.D_c = D_c
         self.scan_time = scan_time
@@ -62,10 +71,11 @@ class SquareLattice():
         if self.load_from == None:
             self.spin = default_spin()
         else:
-            if f'spin_{mpi_rank}' in self.prepare:
-                self.spin = self.prepare[f'spin_{mpi_rank}']
+            if mpi_rank == 0:
+                spin_to_scatter = [self.prepare[f'spin_{i}'] if f'spin_{i}' in self.prepare else default_spin() for i in range(mpi_size)]
             else:
-                self.spin = default_spin()
+                spin_to_scatter = None
+            self.spin = mpi_comm.scatter(spin_to_scatter, root=0)
 
         # 文件记录
         if mpi_rank == 0:
