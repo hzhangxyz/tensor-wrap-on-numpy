@@ -76,7 +76,8 @@ class SquareLattice(list):
         print(f"save_prefix={self.save_prefix}")
         os.makedirs(self.save_prefix, exist_ok=True)
         if self.load_from is not None:
-            os.symlink(os.path.realpath(self.load_from), f'{self.save_prefix}/load_from')
+            os.symlink(os.path.relpath(os.path.realpath(self.load_from), self.save_prefix),
+                       f'{self.save_prefix}/load_from')
         file = open(f'{self.save_prefix}/parameter', 'w')
         file.write(f'python {" ".join(sys.argv)}')
         file.close()
