@@ -17,7 +17,7 @@ class SquareLattice():
 
     def __create_node(self, i, j):
         legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
-        return np.random.rand(2, *[self.D for i in legs])
+        return np.random.rand(2, *[self.D for i in legs]) * 2 - 1 # 不知为何，-1,1之间随机数的话，能量在0附近，0,1间会大于0
 
     def __check_shape(self, input, i, j):
         legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
@@ -112,14 +112,16 @@ class SquareLattice():
 
             if mpi_rank == 0:
                 # 梯度下降
-                total_l = np.array(0.)
+                grad_norm = np.array(0.)
+                data_num = 0
                 for i in range(n):
                     for j in range(m):
-                        total_l += np.sum(grad[i][j] * grad[i][j])
-                total_l = np.sqrt(total_l/(n*m))
+                        grad_norm += np.sum(grad[i][j] * grad[i][j])
+                        data_num += grad[i][j].size
+                grad_norm = np.sqrt(grad_norm/data_num)
                 for i in range(n):
                     for j in range(m):
-                        self.lattice[i][j] -= self.step_size*grad[i][j]/total_l
+                        self.lattice[i][j] -= self.step_size*grad[i][j]/grad_norm
 
                 # 文件保存，包括自旋构形
                 spin_dict = {}

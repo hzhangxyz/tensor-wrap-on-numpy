@@ -18,9 +18,9 @@ def getPoint(base):
     data = [i[1].T+[[i[0]],[0]] for i in allData]
     return data
 
-def plotIt(base, acc=-0.16580050716890718,lim=(1.001,0.975)):
+def plotIt(base, acc=-0.16580050716890718,lim=(1.001,0.975),size=1):
     data = getPoint(base)
     fig, ax = plt.subplots(figsize=(18, 12))
-    _ = [ax.plot(*i,'.',markersize=1) for i in data]
+    _ = [ax.plot(*i,'.',markersize=size) for i in data]
     ax.axhline(y=acc)
     _ = ax.set_ylim(acc*lim[0],acc*lim[1])
