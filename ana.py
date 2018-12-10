@@ -26,4 +26,5 @@ def plotIt(ax, base, acc=-0.16580050716890718,lim=(1.001,0.975),size=1):
     [ax.plot(i[0], i[1] ,'.',markersize=size, label=i[2]) for i in data]
     ax.legend(loc='upper right', markerscale=10/size)
     ax.axhline(y=acc)
+    ax.axhline(y=acc*0.999)
     ax.set_ylim(acc*lim[0],acc*lim[1])
