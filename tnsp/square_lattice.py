@@ -122,15 +122,6 @@ class SquareLattice():
 
             if mpi_rank == 0:
                 # 梯度下降
-                """
-                grad_norm = np.array(0.)
-                data_num = 0
-                for i in range(n):
-                    for j in range(m):
-                        grad_norm += np.sum(grad[i][j] * grad[i][j])
-                        data_num += grad[i][j].size
-                grad_norm = np.sqrt(grad_norm/data_num)
-                """
                 grad_norm = np.array(0.)
                 for i in range(n):
                     for j in range(m):
@@ -140,6 +131,15 @@ class SquareLattice():
                 for i in range(n):
                     for j in range(m):
                         self.lattice[i][j] -= self.step_size*grad[i][j]/grad_norm
+
+                """
+                med = np.median(np.concatenate(list(map(lambda x:x.reshape(-1),np.abs(grad).reshape(-1)))))
+                for i in range(n):
+                    for j in range(m):
+                        delta = (grad[i][j] > med) * np.random.rand(*grad[i][j].shape) -\
+                            (grad[i][j] < -med) * np.random.rand(*grad[i][j].shape)
+                        self.lattice[i][j] -= self.step_size*delta
+                """
 
                 # 文件保存，包括自旋构形
                 spin_dict = {}
