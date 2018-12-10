@@ -5,6 +5,8 @@ run.*
 .run.*
 .coverage
 htmlcov
-*log
-log*
+*.err
+*.log
+log.*
 *.so
+.ipynb_checkpoints
