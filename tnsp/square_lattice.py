@@ -135,7 +135,7 @@ class SquareLattice():
             energy, grad = self.markov_chain()
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
             if mpi_rank == 0:
-                total_l = np.array(0)
+                total_l = np.array(0.)
                 for i in range(n):
                     for j in range(n):
                         total_l += np.sum(grad[i][j] * grad[i][j])
