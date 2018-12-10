@@ -8,6 +8,8 @@ def getAll(base):
     if os.path.exists(f'{base}/load_from'):
         loadFrom = os.path.realpath(f'{base}/load_from')
         nextBase, offSetFile = os.path.split(loadFrom)
+        if not os.path.exists(f'{nextBase}/GM.log'):
+            return [(0, thisData, label)]
         offSet = int(offSetFile[3:-4])
         result = getAll(nextBase)
         result.append((offSet+result[-1][0]+1, thisData, label))
@@ -19,9 +21,8 @@ def getPoint(base):
     data = [(i[1].T[0]+i[0], i[1].T[1], i[2]) for i in allData]
     return data
 
-def plotIt(base, acc=-0.16580050716890718,lim=(1.001,0.975),size=1):
+def plotIt(ax, base, acc=-0.16580050716890718,lim=(1.001,0.975),size=1):
     data = getPoint(base)
-    fig, ax = plt.subplots(figsize=(18, 12))
     [ax.plot(i[0], i[1] ,'.',markersize=size, label=i[2]) for i in data]
     ax.legend(loc='upper right', markerscale=10/size)
     ax.axhline(y=acc)
