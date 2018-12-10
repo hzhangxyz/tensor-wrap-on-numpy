@@ -1,28 +1,26 @@
-#!/usr/bin/env python
-import sys
 import os
-import time
 import numpy as np
 from matplotlib import pyplot as plt
 
-try:
-    folder_name = sys.argv[1]
-except:
-    folder_name = 'run/last'
-name = f"./{folder_name}/"
+def getAll(base):
+    thisData = np.loadtxt(f'{base}/GM.log')
+    if os.path.exists(f'{base}/load_from'):
+        loadFrom = os.path.realpath(f'{base}/load_from')
+        nextBase, offSetFile = os.path.split(loadFrom)
+        offSet = int(offSetFile[3:-4])
+        result = getAll(nextBase)
+        result.append((offSet+result[-1][0]+1, thisData))
+        return result
+    return [(0, thisData)]
 
-def handle_close(evt):
-    exit()
+def getPoint(base):
+    allData = getAll(base)
+    data = [i[1].T+[[i[0]],[0]] for i in allData]
+    return data
 
-plt.ion()
-fig = plt.figure()
-fig.canvas.mpl_connect('close_event', handle_close)
-ax = fig.add_subplot(111)
-#ax.axis([0, len(data), -0.6, 0.5])
-data = np.loadtxt(f'{name}/GM.log')[:,1]
-line, = ax.plot(data, 's', markersize=1)
-base_len = len(data)
-while True:
-    data = np.loadtxt(f'{name}/GM.log')[:,1]
-    line.set_ydata(data[-base_len:])
-    plt.pause(1)
+def plotIt(base, acc=-0.16580050716890718,lim=(1.001,0.975)):
+    data = getPoint(base)
+    fig, ax = plt.subplots(figsize=(18, 12))
+    _ = [ax.plot(*i,'.',markersize=1) for i in data]
+    ax.axhline(y=acc)
+    _ = ax.set_ylim(acc*lim[0],acc*lim[1])
