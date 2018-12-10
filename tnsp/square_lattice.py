@@ -135,12 +135,15 @@ class SquareLattice():
             energy, grad = self.markov_chain()
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
             if mpi_rank == 0:
+                total_l = np.array(0)
+                for i in range(n):
+                    for j in range(n):
+                        total_l += grad[i][j] * grad[i][j]
+                total_l = np.sqrt(total_l/(n*m))
                 for i in range(n):
                     for j in range(m):
-                        med = np.median(abs(grad[i][j]))
-                        delta = (grad[i][j] > med) * np.random.rand(*grad[i][j].shape) -\
-                            (grad[i][j] < -med) * np.random.rand(*grad[i][j].shape)
-                        self.lattice[i][j] -= self.step_size*delta
+                        self.lattice[i][j] -= self.step_size*grad[i][j]/total_l
+
                 spin_dict = {}
                 for i, s in enumerate(gather_spin):
                     spin_dict[f'spin_{i}'] = s
