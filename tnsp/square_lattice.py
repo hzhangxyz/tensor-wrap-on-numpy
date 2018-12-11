@@ -113,9 +113,78 @@ class SquareLattice():
         self.sess = sess
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
+
+        # 四个求和项目，step，能量，梯度，能量梯度积
+        real_step = [None for _ in range(self.markov_chain_length)]
+        E_s = [None for _ in range(self.markov_chain_length)]
+        #Delta_s = [None for _ in range(self.markov_chain_length)]
+        #Prod = [None for _ in range(self.markov_chain_length)]
+
+        def single_spin_tensor(spin, tensor):
+            res = np.zeros([2, *tensor.shape])
+            res[spin] += tensor
+            return res
+
         while True:
             # 每个核各跑一根markov chain
-            energy, grad = self.markov_chain()
+
+            Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
+            Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
+
+            for markov_step in range(self.markov_chain_length):
+                print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
+
+                # 准备送给TF的数据
+                lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
+                lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
+
+                # 调用TF
+                res = self.spin_model(self.sess, self.spin, lat, lat_hop)
+
+                # 累加四个变量
+                real_step[markov_step] = res["step"]
+                E_s[markov_step] = res["energy"]*res["step"]
+                #Delta_s[markov_step] = [[None for j in range(m)] for i in range(n)]
+                #Prod[markov_step] = [[None for j in range(m)] for i in range(n)]
+                for i in range(n):
+                    for j in range(m):
+                        Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
+                        Prod[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]*res["energy"]
+                        #Delta_s[markov_step][i][j] = single_spin_tensor(self.spin[i][j], res["grad"][i][j]*res["step"])
+                        #Prod[markov_step][i][j] = single_spin_tensor(self.spin[i][j], res["grad"][i][j]*res["step"]*res["energy"])
+
+                # hop构形
+                next_index = res["next"]
+                hop_i = next_index // m
+                hop_j = next_index % m
+                self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
+
+            print('\033[K', end='\r')
+
+            # 通过MPI对折四个变量求和
+            sum_step = np.sum(real_step)
+            sum_step = mpi_comm.reduce(sum_step, root=0)
+            sum_E_s = np.sum(E_s)
+            sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
+            sum_Delta_s = [[None for j in range(m)] for i in range(n)]
+            sum_Prod = [[None for j in range(m)] for i in range(n)]
+            #for i in range(n):
+            #    for j in range(m):
+            #        sum_Delta_s[i][j] = np.sum([delta_s[i][j] for delta_s in Delta_s])
+            #        sum_Prod[i][j] = np.sum([prod[i][j] for prod in Prod])
+            for i in range(n):
+                for j in range(m):
+                    sum_Delta_s[i][j] = mpi_comm.reduce(Delta_s[i][j], root=0)
+                    sum_Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
+                    #sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
+                    #sum_Prod[i][j] = mpi_comm.reduce(sum_Prod[i][j], root=0)
+
+            # 最后一点处理并返回
+            if mpi_rank == 0:
+                print("%5.2f"%(sum_step/(mpi_size*self.markov_chain_length)), end=' ')
+                grad = [[(2.*sum_Prod[i][j]/(sum_step) -
+                        2.*sum_E_s*sum_Delta_s[i][j]/(sum_step*sum_step))/(n*m) for j in range(m)] for i in range(n)]
+                energy = sum_E_s/(sum_step*n*m)
 
             # 统计构形信息，用来保存到文件
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
@@ -159,57 +228,3 @@ class SquareLattice():
                 for j in range(m):
                     self.lattice[i][j] = mpi_comm.bcast(self.lattice[i][j], root=0)
             t += 1
-
-    def markov_chain(self):
-        # 载入格子大小
-        n, m = self.size
-
-        # 四个求和项目，step，能量，梯度，能量梯度积
-        real_step = np.array(0.)
-        sum_E_s = np.array(0.)
-        sum_Delta_s = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
-        Prod = [[np.zeros(self.lattice[i][j].shape) for j in range(m)]for i in range(n)]
-
-        for markov_step in range(self.markov_chain_length):
-            print('markov chain', markov_step, '/', self.markov_chain_length, end='\r')
-
-            # 准备送给TF的数据
-            lat = [[self.lattice[i][j][self.spin[i][j]] for j in range(m)] for i in range(n)]
-            lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
-
-            # 调用TF
-            res = self.spin_model(self.sess, self.spin, lat, lat_hop)
-
-            # 累加四个变量
-            real_step += res["step"]
-            sum_E_s += res["energy"]*res["step"]
-            for i in range(n):
-                for j in range(m):
-                    sum_Delta_s[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]
-                    Prod[i][j][self.spin[i][j]] += res["grad"][i][j]*res["step"]*res["energy"]
-
-            # hop构形
-            next_index = res["next"]
-            hop_i = next_index // m
-            hop_j = next_index % m
-            self.spin[hop_i][hop_j] = 1 - self.spin[hop_i][hop_j]
-
-        print('\033[K', end='\r')
-
-        # 通过MPI对折四个变量求和
-        real_step = mpi_comm.reduce(real_step, root=0)
-        sum_E_s = mpi_comm.reduce(sum_E_s, root=0)
-        for i in range(n):
-            for j in range(m):
-                Prod[i][j] = mpi_comm.reduce(Prod[i][j], root=0)
-                sum_Delta_s[i][j] = mpi_comm.reduce(sum_Delta_s[i][j], root=0)
-
-        # 最后一点处理并返回
-        if mpi_rank == 0:
-            print("%5.2f"%(real_step/(mpi_size*self.markov_chain_length)), end=' ')
-            Grad = [[(2.*Prod[i][j]/(real_step) -
-                      2.*sum_E_s*sum_Delta_s[i][j]/(real_step*real_step))/(n*m) for j in range(m)] for i in range(n)]
-            Energy = sum_E_s/(real_step*n*m)
-            return Energy, Grad
-        else:
-            return None, None
