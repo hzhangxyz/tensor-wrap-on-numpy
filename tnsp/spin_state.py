@@ -7,9 +7,7 @@ import tensorflow as tf
 from .tensor_node import Node
 
 # 载入两个算子，count_hop和next_hop
-count_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'count_hop.so')
 next_hop_path = os.path.join(os.path.split(__file__)[0], 'op', 'next_hop.so')
-count_hop = tf.load_op_library(count_hop_path).count_hop
 next_hop = tf.load_op_library(next_hop_path).next_hop
 
 # 载入配置文件，里面有哈密顿量和边的连接方式，现在边的链接方式还有问题
