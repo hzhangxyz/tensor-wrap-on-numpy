@@ -8,6 +8,6 @@ sess = tf.Session(config=config)
 
 with sess:
     print("Session Running")
-    res1, res2 = next_hop_module.next_hop([tf.convert_to_tensor(0.4),0.6,0.9,-1.,0.7])
+    res1, res2 = next_hop_module.next_hop([tf.convert_to_tensor(0.4),0.6,0.9,1.2,0.7], [0.02,0.82])
     ans = sess.run([res1, res2])
     print(ans)

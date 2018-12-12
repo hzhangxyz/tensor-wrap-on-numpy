@@ -12,13 +12,12 @@ ifdef USE_GCC
 	CXX=g++
 	FAST=-O3 -march=native
 endif
-build: count_hop.so next_hop.so
+build: next_hop.so
 clean:
 	rm *.so
 %.so: %.cc
 	$(CXX) -std=c++11 -shared -fPIC ${TF_CFLAGS} ${TF_LFLAGS} $(FAST) -o $@ $<
 test:
-	python test_count_hop.py
 	python test_next_hop.py
 test_com:
 	echo ${CXX}
