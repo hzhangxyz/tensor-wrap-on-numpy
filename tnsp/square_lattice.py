@@ -122,25 +122,15 @@ class SquareLattice():
 
             if mpi_rank == 0:
                 # 梯度下降
-                if t % 200 == 0:
-                    real_grad = grad
-                    last_grad = grad
-                else:
-                    beta_1 = np.sum([[np.sum(grad[i][j]*grad[i][j]) for j in range(m)] for i in range(n)])
-                    beta_2 = np.sum([[np.sum((grad[i][j]-last_grad[i][j])*real_grad[i][j]) for j in range(m)] for i in range(n)])
-                    real_grad = [[grad[i][j] - beta_1/beta_2 * real_grad[i][j] for j in range(m)] for i in range(n)]
-                    last_grad = grad
-                #real_grad = grad
-
                 grad_norm = np.array(0.)
                 for i in range(n):
                     for j in range(m):
-                        tmp = np.max(np.abs(real_grad[i][j]))
+                        tmp = np.max(np.abs(grad[i][j]))
                         if tmp > grad_norm:
                             grad_norm = tmp
                 for i in range(n):
                     for j in range(m):
-                        self.lattice[i][j] -= self.step_size*real_grad[i][j]/grad_norm
+                        self.lattice[i][j] -= self.step_size*grad[i][j]/grad_norm
 
                 """
                 pool = []
