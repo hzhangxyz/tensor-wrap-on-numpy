@@ -4,15 +4,19 @@ from mpi4py import MPI
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
-mpi_comm.Barrier()
-if mpi_rank==0:
-    print("mpi_rank: ", mpi_size)
+def root_print(*args, **kw):
+    if mpi_rank==0:
+        print(*args, **kw)
+root_print("mpi_rank: ", mpi_size)
+root_print("mpi loaded")
 
 import os
 import time
 import argparse
 import tensorflow as tf
+root_print("tensorflow loaded")
 from tnsp import SquareLattice
+root_print("tnsp loaded")
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--continue', dest='continued', default=False, action="store_true", help="continue run, conflict with -f")
 parser.add_argument('-N', '--size-n', dest='n', required=True, type=int, help="system size n")
@@ -32,7 +36,10 @@ if args.continued and args.load_from != None:
 if args.continued and not args.load_from:
     args.load_from = f"{args.save_prefix}/last/last.npz"
 
+root_print("parameter loaded")
+
 sl = SquareLattice([args.n, args.m], D=args.D, D_c=args.D_c, scan_time=args.scan_time, step_size=args.step_size, markov_chain_length=args.markov, load_from=args.load_from, save_prefix=args.save_prefix)
+root_print("lattice created")
 
 config = tf.ConfigProto()
 config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_2
@@ -40,7 +47,8 @@ config.intra_op_parallelism_threads = 1
 config.inter_op_parallelism_threads = 1
 config.device_count['GPU'] = 0
 sess = tf.Session(config=config)
+root_print("session created")
 
 start = time.time()
 sl.grad_descent(sess)
-print(time.time()-start)
+root_print(time.time()-start)
