@@ -5,8 +5,10 @@ import numpy as np
 import tensorflow as tf
 from mpi4py import MPI
 from .tensor_node import Node
-from .spin_state import SpinState, get_lattice_node_leg
+from .spin_state import SpinState, config
 
+get_lattice_node_leg = config.get_lattice_node_leg
+default_spin = config.default_spin
 
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
@@ -66,13 +68,11 @@ class SquareLattice():
         self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=self.TYPE)
 
         # 生成或者载入spin构形
-        def default_spin():
-            return np.array([[0 if (i+j) % 2 == 0 else 1 for j in range(m)] for i in range(n)])
         if self.load_from == None:
-            self.spin = default_spin()
+            self.spin = default_spin(n, m)
         else:
             if mpi_rank == 0:
-                spin_to_scatter = [self.prepare[f'spin_{i}'] if f'spin_{i}' in self.prepare else default_spin() for i in range(mpi_size)]
+                spin_to_scatter = [self.prepare[f'spin_{i}'] if f'spin_{i}' in self.prepare else default_spin(n, m) for i in range(mpi_size)]
             else:
                 spin_to_scatter = None
             self.spin = mpi_comm.scatter(spin_to_scatter, root=0)
@@ -130,6 +130,7 @@ class SquareLattice():
                     beta_2 = np.sum([[np.sum((grad[i][j]-last_grad[i][j])*real_grad[i][j]) for j in range(m)] for i in range(n)])
                     real_grad = [[grad[i][j] - beta_1/beta_2 * real_grad[i][j] for j in range(m)] for i in range(n)]
                     last_grad = grad
+                #real_grad = grad
 
                 grad_norm = np.array(0.)
                 for i in range(n):
@@ -187,7 +188,7 @@ class SquareLattice():
             lat_hop = [[self.lattice[i][j][1-self.spin[i][j]] for j in range(m)] for i in range(n)]
 
             # 调用TF
-            res = self.spin_model(self.sess, self.spin, lat, lat_hop)
+            res = self.spin_model(self.sess, self.spin, lat, lat_hop, np.random.rand(2))
 
             # 累加四个变量
             real_step += res["step"]

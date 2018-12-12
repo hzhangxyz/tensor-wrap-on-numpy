@@ -8,6 +8,10 @@ else
 	CXX=g++
 	FAST=-O3 -march=native
 endif
+ifdef USE_GCC
+	CXX=g++
+	FAST=-O3 -march=native
+endif
 build: count_hop.so next_hop.so
 clean:
 	rm *.so

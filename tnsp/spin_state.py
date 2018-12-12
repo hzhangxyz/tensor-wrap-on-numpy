@@ -16,6 +16,7 @@ next_hop = tf.load_op_library(next_hop_path).next_hop
 spec = importlib.util.spec_from_file_location("config", "./config.py")
 config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
+
 get_lattice_node_leg = config.get_lattice_node_leg
 Hamiltonian = config.Hamiltonian
 
@@ -101,6 +102,8 @@ class SpinState():
                 self.lat = [[gen_place_holder(i, j, prefix='lat') for j in range(m)] for i in range(n)]
             with tf.name_scope('lat_hop'):
                 self.lat_hop = [[gen_place_holder(i, j, prefix='lat_hop') for j in range(m)] for i in range(n)]
+            with tf.name_scope('random_num'):
+                self.random_num = tf.placeholder(tf.float32, shape=[2], name='random_num')
 
         # 保存另外一些小数据
         self.D_c = D_c
@@ -258,7 +261,7 @@ class SpinState():
                         E_s.append(e_s_to_append)
 
         with tf.name_scope('markov'):
-            self.stay_step, self.next_index = next_hop(markov)
+            self.stay_step, self.next_index = next_hop(markov, self.random_num)
 
         with tf.name_scope('res'):
             for i in range(n):
@@ -267,9 +270,9 @@ class SpinState():
             self.energy = tf.reduce_sum(E_s, name='e_s')
             self.grad = Delta_s
 
-    def __call__(self, sess, state, lat, lat_hop):
+    def __call__(self, sess, state, lat, lat_hop, random_num):
         n, m = self.size
-        feed_dict = {self.state: state}
+        feed_dict = {self.state: state, self.random_num: random_num}
         for i in range(n):
             for j in range(m):
                 feed_dict[self.lat[i][j].data] = lat[i][j]

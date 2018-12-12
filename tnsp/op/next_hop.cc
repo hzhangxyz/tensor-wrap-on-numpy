@@ -1,15 +1,13 @@
+#include <cmath>
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
-#include <ctime>
-#include <iostream>
-#include <mutex>
-#include <unistd.h>
 
 using namespace tensorflow;
 
 REGISTER_OP("NextHop")
 .Input("possibility: float")
+.Input("random: float")
 .Output("stay_step: int32")
 .Output("next_index: int32")
 .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
@@ -29,24 +27,34 @@ public:
     auto total_n = possibility_handle.dim_size(0);
     auto possibility = possibility_handle.flat<float>();
 
-    int flag[total_n];
-    int eff_n = 0;
+    const Tensor& random_handle = context->input(1);
+    auto random_num = random_handle.flat<float>();
+
+    float poss_sum = 0;
     for(int i = 0; i < total_n; i++){
-      if(possibility(i)>=0){
-        flag[eff_n++] = i;
+      if(possibility(i)<1){
+        poss_sum += possibility(i);
+      }else{
+        poss_sum += 1;
       }
     }
+    int stay_step = std::ceil(std::log(random_num(0))/std::log(1-poss_sum/total_n));
 
-    int stay_step = 0;
+    float random = std::floor(random_num(1)*poss_sum);
+    float sum = 0;
     int next_index = 0;
-    std::call_once(random_seed_flag, []{
-                                       std::srand(getpid());
-                                     });
-    //std::srand((int)(possibility(flag[0])*65535));
-    for(float hop_p=0, rand_n=1;hop_p<rand_n;++stay_step){
-      next_index = std::rand()%eff_n;
-      hop_p = possibility(flag[next_index]);
-      rand_n= ((float) std::rand()) / (float) RAND_MAX;
+    for(; next_index < total_n; next_index++){
+      if(possibility(next_index)<1){
+        sum += possibility(next_index);
+      }else{
+        sum += 1;
+      }
+      if(sum >= random){
+        break;
+      }
+    }
+    if(next_index==total_n){
+      next_index = total_n - 1;
     }
 
     Tensor* res = NULL;
@@ -62,7 +70,7 @@ public:
     OP_REQUIRES_OK(context, context->allocate_output(1, shape,
                                                      &res));
     auto out2 = res->flat<int32>();
-    out2(0) = flag[next_index];
+    out2(0) = next_index;
 
   }
 };
