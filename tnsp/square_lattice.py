@@ -9,6 +9,7 @@ from .spin_state import SpinState, config
 
 get_lattice_node_leg = config.get_lattice_node_leg
 default_spin = config.default_spin
+seed = config.seed
 
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
@@ -34,6 +35,8 @@ class SquareLattice():
 
     def __init__(self, size, D, D_c, scan_time, step_size, markov_chain_length, load_from=None, save_prefix="run"):
         # 保存各类参数
+        np.random.seed(seed+mpi_rank)
+        tf.set_random_seed(seed+mpi_rank+mpi_size)
         n, m = self.size = size
         self.D = D
         if load_from == None:
