@@ -40,3 +40,8 @@ def Hop(a,b,c,d):
 
 def Hamiltonian(a,b,c,d):
     return Sx+Sy+Sz
+
+def default_spin(n, m):
+    return np.array([[0 if (i+j) % 2 == 0 else 1 for j in range(m)] for i in range(n)])
+
+seed=42

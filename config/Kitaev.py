@@ -12,12 +12,10 @@ def get_lattice_node_leg(i, j, n, m):
         legs = legs.replace('l', '')
     if j == m-1:
         legs = legs.replace('r', '')
-        """
-    if (i+j) % 2 == 0:
-        legs = legs.replace('l', '')
-    else:
-        legs = legs.replace('r', '')
-        """
+    #if (i+j) % 2 == 0:
+    #    legs = legs.replace('l', '')
+    #else:
+    #    legs = legs.replace('r', '')
     return legs
 
 Sz = np.array([[ 1, 0, 0, 0],
@@ -43,6 +41,17 @@ def Hop(a,b,c,d):
     else:
         return True
 
+"""
+OZO OZO
+X Y X Y
+O OZO O
+Y X Y X
+OZO OZO
+X Y X Y
+O OZO O
+"""
+
+
 def Hamiltonian(a,b,c,d):
     if a == c:
         if (a+b) % 2 == 0:
@@ -51,9 +60,9 @@ def Hamiltonian(a,b,c,d):
             return Zero
     else:
         if (a+b) % 2 == 0:
-            return Sy
+            return Sx*4
         else:
-            return Sx
+            return Sy
 
 def default_spin(n, m):
     return np.array([[0 if (i+j) % 2 == 0 else 1 for j in range(m)] for i in range(n)])
