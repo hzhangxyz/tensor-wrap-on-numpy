@@ -10,6 +10,7 @@ config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
 get_lattice_node_leg = config.get_lattice_node_leg
 Hamiltonian = config.Hamiltonian
+seed = config.seed
 
 class SquareLattice(list):
     def __create_node(self, i, j):
@@ -28,6 +29,7 @@ class SquareLattice(list):
         return obj
 
     def __init__(self, size, D, step_size, load_from=None, save_prefix="run", step_print=100):
+        np.random.seed(seed)
         n, m = self.size = size
         self.D = D
         if load_from != None and not os.path.exists(load_from):
