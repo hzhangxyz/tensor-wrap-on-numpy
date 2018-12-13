@@ -6,8 +6,8 @@
 using namespace tensorflow;
 
 REGISTER_OP("NextHop")
-.Input("possibility: float")
-.Input("random: float")
+.Input("possibility: double")
+.Input("random: double")
 .Output("stay_step: int32")
 .Output("next_index: int32")
 .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
@@ -25,12 +25,12 @@ public:
   void Compute(OpKernelContext* context) override {
     const Tensor& possibility_handle = context->input(0);
     auto total_n = possibility_handle.dim_size(0);
-    auto possibility = possibility_handle.flat<float>();
+    auto possibility = possibility_handle.flat<double>();
 
     const Tensor& random_handle = context->input(1);
-    auto random_num = random_handle.flat<float>();
+    auto random_num = random_handle.flat<double>();
 
-    float poss_sum = 0;
+    double poss_sum = 0;
     for(int i = 0; i < total_n; i++){
       if(possibility(i)<1){
         poss_sum += possibility(i);
@@ -40,8 +40,8 @@ public:
     }
     int stay_step = std::ceil(std::log(random_num(0))/std::log(1-poss_sum/total_n));
 
-    float random = std::floor(random_num(1)*poss_sum);
-    float sum = 0;
+    double random = random_num(1)*poss_sum;
+    double sum = 0;
     int next_index = 0;
     for(; next_index < total_n; next_index++){
       if(possibility(next_index)<1){

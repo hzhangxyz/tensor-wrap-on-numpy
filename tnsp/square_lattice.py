@@ -67,7 +67,7 @@ class SquareLattice():
         self.markov_chain_length = markov_chain_length
         self.step_size = step_size
 
-        self.TYPE = tf.float32
+        self.TYPE = tf.float64
         self.spin_model = SpinState(size=self.size, D=self.D, D_c=self.D_c, scan_time=self.scan_time, TYPE=self.TYPE)
 
         # 生成或者载入spin构形

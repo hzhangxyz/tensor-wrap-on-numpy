@@ -82,7 +82,7 @@ def auxiliary_generate(length, former, current, initial, L='l', R='r', U='u', D=
 
 class SpinState():
 
-    def __init__(self, size, D, D_c, scan_time, TYPE=tf.float32):
+    def __init__(self, size, D, D_c, scan_time, TYPE=tf.float64):
         # 保存一些小数据
         self.size = size
         self.D = D
@@ -101,7 +101,7 @@ class SpinState():
             with tf.name_scope('lat_hop'):
                 self.lat_hop = [[gen_place_holder(i, j, prefix='lat_hop') for j in range(m)] for i in range(n)]
             with tf.name_scope('random_num'):
-                self.random_num = tf.placeholder(tf.float32, shape=[2], name='random_num')
+                self.random_num = tf.placeholder(tf.float64, shape=[2], name='random_num')
 
         # 保存另外一些小数据
         self.D_c = D_c
@@ -184,7 +184,7 @@ class SpinState():
                                            .tensor_contract(self.DownToUp[(i+1) % n][(j+1) % m], ['r3', 'd'], ['l', 'u'], {}, {'r': 'r3'}, restrict_mode=False)
                                            .tensor_contract(r[(j+2) % m], ['r1', 'r2', 'r3'], ['l1', 'l2', 'l3'], restrict_mode=False)).data
                         def if_can_hop():
-                            tmp = tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            tmp = H[1,1] #tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
                             if H[1,2] != 0.0:
                                 res = get_res()
                                 tmp += res * H[1,2] / self.w_s
@@ -193,7 +193,7 @@ class SpinState():
                             return tmp
 
                         def if_cannot_hop():
-                            tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
+                            tmp = H[0,0] #tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
                             if H[0,3] != 0.0:
                                 res = get_res()
                                 tmp += res * H[0,3] / self.w_s
@@ -236,7 +236,7 @@ class SpinState():
                                            .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
                         def if_can_hop():
                             # H(1,1)
-                            tmp = tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
+                            tmp = H[1,1] #tf.convert_to_tensor(H[1,1], dtype=self.TYPE)
                             # H(1,2)
                             if H[1,2] != 0.0:
                                 res = get_res()
@@ -247,7 +247,7 @@ class SpinState():
 
                         def if_cannot_hop():
                             # H(0,0)
-                            tmp = tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
+                            tmp = H[0,0] #tf.convert_to_tensor(H[0,0], dtype=self.TYPE)
                             # H(0,3)
                             if H[0,3] != 0.0:
                                 res = get_res()
