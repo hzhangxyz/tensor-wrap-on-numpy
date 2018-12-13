@@ -100,8 +100,9 @@ class SpinState():
                 self.lat = [[gen_place_holder(i, j, prefix='lat') for j in range(m)] for i in range(n)]
             with tf.name_scope('lat_hop'):
                 self.lat_hop = [[gen_place_holder(i, j, prefix='lat_hop') for j in range(m)] for i in range(n)]
-            with tf.name_scope('random_num'):
+            with tf.name_scope('misc'):
                 self.random_num = tf.placeholder(tf.float64, shape=[2], name='random_num')
+                self.one = tf.convert_to_tensor(1, dtype=self.TYPE, name='one')
 
         # 保存另外一些小数据
         self.D_c = D_c
@@ -118,7 +119,7 @@ class SpinState():
     def cal_w_s(self):
         n, m = self.size
 
-        self.w_s = Node(1.)
+        self.w_s = Node(self.one)
         for j in range(0, m):
             self.w_s = self.w_s\
                 .tensor_contract(self.UpToDown[n-2][j], ['r1'], ['l'], {}, {'r': 'r1'}, restrict_mode=False)\
@@ -145,9 +146,9 @@ class SpinState():
             with tf.name_scope(f'mpo_h_{i}'):
                 # 计算单列的辅助矩阵
                 l = [None for j in range(m)]
-                l[-1] = Node(1.)
+                l[-1] = Node(self.one)
                 r = [None for j in range(m)]
-                r[0] = Node(1.)
+                r[0] = Node(self.one)
 
                 with tf.name_scope('aux'):
                     for j in range(0, m-1):
@@ -207,9 +208,9 @@ class SpinState():
             with tf.name_scope(f'mpo_v_{j}'):
                 # 计算单列的辅助矩阵
                 u = [None for i in range(n)]
-                u[-1] = Node(1.)
+                u[-1] = Node(self.one)
                 d = [None for i in range(n)]
-                d[0] = Node(1.)
+                d[0] = Node(self.one)
 
                 with tf.name_scope('aux'):
                     for i in range(0, n-1):
@@ -295,7 +296,7 @@ class SpinState():
                         legs = get_lattice_node_leg(i, j, n, m).replace('u','').replace('d','')
                         initial[j] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['d', *legs])
                     self.UpToDown[i] = auxiliary_generate(m, self.UpToDown[i-1], self.lat[i], initial, L='l', R='r', U='u', D='d', scan_time=self.scan_time)
-            self.UpToDown[n-1] = [Node(1.) for j in range(m)]
+            self.UpToDown[n-1] = [Node(self.one) for j in range(m)]
 
     def __auxiliary_down_to_up(self):
         n, m = self.size
@@ -309,7 +310,7 @@ class SpinState():
                         legs = get_lattice_node_leg(i, j, n, m).replace('d','').replace('u','')
                         initial[j] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['u', *legs])
                     self.DownToUp[i] = auxiliary_generate(m, self.DownToUp[i+1], self.lat[i], initial, L='l', R='r', U='d', D='u', scan_time=self.scan_time)
-            self.DownToUp[0] = [Node(1.) for j in range(m)]
+            self.DownToUp[0] = [Node(self.one) for j in range(m)]
 
     def __auxiliary_left_to_right(self):
         n, m = self.size
@@ -324,7 +325,7 @@ class SpinState():
                         initial[i] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['r', *legs])
                     self.LeftToRight[j] = auxiliary_generate(n, self.LeftToRight[j-1], [self.lat[t][j] for t in range(n)], initial,
                                                              L='u', R='d', U='l', D='r', scan_time=self.scan_time)
-            self.LeftToRight[m-1] = [Node(1.) for i in range(n)]
+            self.LeftToRight[m-1] = [Node(self.one) for i in range(n)]
             tmp = self.LeftToRight
             self.LeftToRight = [[tmp[j][i] for j in range(m)] for i in range(n)]
 
@@ -341,6 +342,6 @@ class SpinState():
                         initial[i] = Node(tf.random_uniform([self.D, *[self.D_c for l in legs]], dtype=self.TYPE), legs=['l', *legs])
                     self.RightToLeft[j] = auxiliary_generate(n, self.RightToLeft[j+1], [self.lat[t][j] for t in range(n)], initial,
                                                              L='u', R='d', U='r', D='l', scan_time=self.scan_time)
-            self.RightToLeft[0] = [Node(1.) for i in range(n)]
+            self.RightToLeft[0] = [Node(self.one) for i in range(n)]
             tmp = self.RightToLeft
             self.RightToLeft = [[tmp[j][i] for j in range(m)] for i in range(n)]
