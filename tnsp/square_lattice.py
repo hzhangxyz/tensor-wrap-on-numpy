@@ -116,10 +116,11 @@ class SquareLattice():
         self.sess = sess
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
+
+        norm_list = []
         while True:
             # 每个核各跑一根markov chain
-            energy, grad = self.markov_chain()
-
+            energy, grad, real_step = self.markov_chain()
             # 统计构形信息，用来保存到文件
             gather_spin = mpi_comm.gather(np.array(self.spin), root=0)
 
@@ -131,22 +132,13 @@ class SquareLattice():
                         tmp = np.max(np.abs(grad[i][j]))
                         if tmp > grad_norm:
                             grad_norm = tmp
+                norm_list.append(grad_norm)
+                if len(norm_list) > 50:
+                    norm_list = norm_list[1:]
+                expect_norm = min(norm_list)
                 for i in range(n):
                     for j in range(m):
-                        self.lattice[i][j] -= self.step_size*grad[i][j]/grad_norm
-
-                """
-                pool = []
-                for i in range(n):
-                    for j in range(m):
-                        pool = np.append(pool, grad[i][j].reshape(-1))
-                med = np.median(np.abs(pool))
-                for i in range(n):
-                    for j in range(m):
-                        delta = (grad[i][j] > med) * np.random.rand(*grad[i][j].shape) -\
-                            (grad[i][j] < -med) * np.random.rand(*grad[i][j].shape)
-                        self.lattice[i][j] -= self.step_size*delta
-                """
+                        self.lattice[i][j] -= self.step_size*grad[i][j]*expect_norm/grad_norm
 
                 # 文件保存，包括自旋构形
                 spin_dict = {}
@@ -155,7 +147,7 @@ class SquareLattice():
                 self.save(energy=energy, name=f'GM.{t}', **spin_dict)
                 file.write(f'{t} {energy}\n')
                 file.flush()
-                print(t, energy)
+                print(t, "\t%.8f"%energy, "\t%5.2f"%(real_step/(mpi_size*self.markov_chain_length)), "\t%0.8f"%grad_norm)
 
             # 将波函数广播回去
             for i in range(n):
@@ -209,10 +201,9 @@ class SquareLattice():
 
         # 最后一点处理并返回
         if mpi_rank == 0:
-            print("%5.2f"%(real_step/(mpi_size*self.markov_chain_length)), end=' ')
             Grad = [[(2.*Prod[i][j]/(real_step) -
                       2.*sum_E_s*sum_Delta_s[i][j]/(real_step*real_step))/(n*m) for j in range(m)] for i in range(n)]
             Energy = sum_E_s/(real_step*n*m)
-            return Energy, Grad
+            return Energy, Grad, real_step
         else:
-            return None, None
+            return None, None, None
