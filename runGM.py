@@ -17,6 +17,7 @@ import tensorflow as tf
 root_print("tensorflow loaded")
 from tnsp import SquareLattice
 root_print("tnsp loaded")
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--continue', dest='continued', default=False, action="store_true", help="continue run, conflict with -f")
 parser.add_argument('-N', '--size-n', dest='n', required=True, type=int, help="system size n")

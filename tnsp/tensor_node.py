@@ -24,7 +24,7 @@ class Node(object):
         return self
 
     def __init__(self, data, legs=[], *args, **kw):
-        self.data = tf.convert_to_tensor(data, *args, **kw)
+        self.data = data # tf.convert_to_tensor(data, *args, **kw)
         self.legs = [legs[i] for i in range(len(self.shape))]
         self.check_legs()
 
