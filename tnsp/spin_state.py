@@ -92,7 +92,7 @@ class SpinState():
         # 生成state，lat，lat_hop的place_holder
         def gen_place_holder(i, j, prefix):
             legs = get_lattice_node_leg(i, j, self.size[0], self.size[1])
-            return Node(tf.placeholder(self.TYPE, shape=[self.D for i in legs], name=f'{prefix}_{i}_{j}'), legs)
+            return Node(tf.placeholder(self.TYPE, shape=[self.D for i in legs], name=f'{prefix}_{i}_{j}'), list(legs))
         with tf.name_scope('static'):
             with tf.name_scope('state'):
                 self.state = tf.placeholder(tf.int32, [n, m], name='spin_state')
@@ -231,7 +231,7 @@ class SpinState():
                                            .tensor_contract(self.LeftToRight[i][(j-1) % m], ['d1'], ['u'], {}, {'d': 'd1'}, restrict_mode=False)
                                            .tensor_contract(self.lat_hop[i][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
                                            .tensor_contract(self.RightToLeft[i][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
-                                           .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], 'u', {}, {'d': 'd1'}, restrict_mode=False)
+                                           .tensor_contract(self.LeftToRight[(i+1) % n][(j-1) % m], ['d1'], ['u']   , {}, {'d': 'd1'}, restrict_mode=False)
                                            .tensor_contract(self.lat_hop[(i+1) % n][j], ['d2', 'r'], ['u', 'l'], {}, {'d': 'd2'}, restrict_mode=False)
                                            .tensor_contract(self.RightToLeft[(i+1) % n][(j+1) % m], ['d3', 'r'], ['u', 'l'], {}, {'d': 'd3'}, restrict_mode=False)
                                            .tensor_contract(d[(i+2) % n], ['d1', 'd2', 'd3'], ['u1', 'u2', 'u3'], restrict_mode=False)).data
@@ -265,7 +265,7 @@ class SpinState():
         with tf.name_scope('res'):
             for i in range(n):
                 for j in range(m):
-                    Delta_s[i][j] = tf.div(Delta_s[i][j].tensor_transpose(get_lattice_node_leg(i, j, n, m)).data, self.w_s, name=f'grad_{i}_{j}')
+                    Delta_s[i][j] = tf.div(Delta_s[i][j].tensor_transpose(list(get_lattice_node_leg(i, j, n, m))).data, self.w_s, name=f'grad_{i}_{j}')
             self.energy = tf.reduce_sum(E_s, name='e_s')
             self.grad = Delta_s
 
