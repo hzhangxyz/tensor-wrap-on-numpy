@@ -113,6 +113,7 @@ class SquareLattice():
         # 载入格子大小，建立session，文件输出这一些杂事
         n, m = self.size
         t = 0
+        norm_list = []
         self.sess = sess
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
@@ -133,9 +134,17 @@ class SquareLattice():
                         tmp = np.max(np.abs(grad[i][j]))
                         if tmp > grad_norm:
                             grad_norm = tmp
+                norm_list.append(grad_norm)
+                if len(norm_list) > 50:
+                    norm_list = norm_list[1:]
+                limit = np.median(norm_list)*2
+                if limit < grad_norm:
+                    param = limit/grad_norm
+                else:
+                    param = np.array(1.)
                 for i in range(n):
                     for j in range(m):
-                        self.lattice[i][j] -= self.step_size*grad[i][j]/grad_norm
+                        self.lattice[i][j] -= self.step_size*grad[i][j]*param
 
                 # 文件保存，包括自旋构形
                 spin_dict = {}
