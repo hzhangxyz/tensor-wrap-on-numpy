@@ -15,7 +15,7 @@ class Node(object):
     - svd
     - qr
     """
-    def assert_legs_dict(self, legs_dict, restrict_mode=True):
+    def __assert_legs_dict(self, legs_dict, restrict_mode=True):
         assert isinstance(legs_dict, dict), 'legs_dict should be dict'
         for i, j in legs_dict.items():
             assert isinstance(i, str), 'legs_dict keys should be str'
@@ -25,7 +25,7 @@ class Node(object):
                 if not i in self.legs:
                     raise Exception(f'leg {i} not found')
     
-    def assert_legs(self, legs, restrict_mode=True, part=True):
+    def __assert_legs(self, legs, restrict_mode=True, part=True):
         assert isinstance(legs, list), 'legs array should be a list'
         for i in legs:
                 assert isinstance(i, str), 'legs should be str'
@@ -44,7 +44,7 @@ class Node(object):
 
         参数为重命名用的dict, 应该是str->str的dict.
         """
-        self.assert_legs_dict(legs_dict, restrict_mode)
+        self.__assert_legs_dict(legs_dict, restrict_mode)
 
         legs = [legs_dict[i] if i in legs_dict else i for i in self.legs]
         return Node(self.data, legs)
@@ -56,7 +56,7 @@ class Node(object):
         """
         assert isinstance(data, tf.Tensor), 'data should be a tensor'
         self.data = data
-        self.assert_legs(legs, part=False)
+        self.__assert_legs(legs, part=False)
         self.legs = legs[:]
 
     @property
@@ -74,7 +74,7 @@ class Node(object):
 
         输入转置后的legs顺序作为参数, legs必须是self.legs的置换.
         """
-        self.assert_legs(legs, part=False)
+        self.__assert_legs(legs, part=False)
 
         with tf.name_scope(name):
             res = tf.transpose(self.data, [self.legs.index(i) for i in legs])
@@ -85,12 +85,14 @@ class Node(object):
 
         参数依次为两个node, 需要缩并的对应legs, 需要顺便重命名的其他legs.
         """
+        tensor1 = self
+        tensor2 = tensor
         assert isinstance(self, Node), 'contract parameter is not node'
         assert isinstance(tensor, Node), 'contract parameter is not node'
-        self.assert_legs(legs1, restrict_mode)
-        tensor.assert_legs(legs2, restrict_mode)
-        self.assert_legs_dict(legs_dict1, restrict_mode)
-        tensor.assert_legs_dict(legs_dict2, restrict_mode)
+        tensor1.__assert_legs(legs1, restrict_mode)
+        tensor2.__assert_legs(legs2, restrict_mode)
+        tensor1.__assert_legs_dict(legs_dict1, restrict_mode)
+        tensor2.__assert_legs_dict(legs_dict2, restrict_mode)
         assert len(legs1) == len(legs2), 'contract legs number differ'
         for i in legs_dict1:
             assert not i in legs1, 'element of legs_dict should not be in contract legs'
@@ -126,7 +128,7 @@ class Node(object):
 
     def tensor_multiple(self, arr, leg, restrict_mode=True, name='tensor_multiple'):
         """在这个tensor的一个方向上乘上一个向量."""
-        self.assert_legs([leg], restrict_mode)
+        self.__assert_legs([leg], restrict_mode)
         assert isinstance(arr, tf.Tensor), 'array to multiple should be convert to tensor first'
         assert len(arr.shape) == 1, 'array should be dimension 1 tensor'
 
