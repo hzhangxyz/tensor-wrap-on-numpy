@@ -118,6 +118,9 @@ class SquareLattice():
             file = open(f'{self.save_prefix}/GM.log', 'w')
 
         norm_list = []
+        if mpi_rank == 0:
+            print("step\tenergy\t\tdup\tnorm")
+        mpi_comm.Barrier()
         while True:
             # 每个核各跑一根markov chain
             energy, grad, real_step = self.markov_chain()
