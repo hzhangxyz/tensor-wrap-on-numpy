@@ -46,7 +46,7 @@ class Node(object):
         """
         self.assert_legs_dict(legs_dict, restrict_mode)
 
-        legs = [legs_dict[i] if i in legs_dict else i for i in legs]
+        legs = [legs_dict[i] if i in legs_dict else i for i in self.legs]
         return Node(self.data, legs)
 
     def __init__(self, data, legs=[]):
