@@ -51,5 +51,6 @@ sess = tf.Session(config=config)
 root_print("session created")
 
 start = time.time()
+tf.summary.FileWriter('./run/last/', sess.graph)
 sl.grad_descent(sess)
 root_print(time.time()-start)

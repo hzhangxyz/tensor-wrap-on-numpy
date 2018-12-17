@@ -117,7 +117,7 @@ class SquareLattice():
         self.sess = sess
         if mpi_rank == 0:
             file = open(f'{self.save_prefix}/GM.log', 'w')
-            print("step\tenergy\t\tdup\tnorm")
+            print(f'{"step":<6s}  {"energy":^12s}  {"dup":^6s}  {"norm":^12s}')
         mpi_comm.Barrier()
         while True:
             # 每个核各跑一根markov chain
@@ -153,7 +153,7 @@ class SquareLattice():
                 self.save(energy=energy, name=f'GM.{t}', **spin_dict)
                 file.write(f'{t} {energy}\n')
                 file.flush()
-                print(t, "\t%.8f"%energy, "\t%5.2f"%(real_step/(mpi_size*self.markov_chain_length)), "\t%0.8f"%grad_norm)
+                print(f'{t:<6d}  {energy:>12.8f}  {real_step/(mpi_size*self.markov_chain_length):>6.2f}  {grad_norm:>12.8f}')
 
             # 将波函数广播回去
             for i in range(n):
