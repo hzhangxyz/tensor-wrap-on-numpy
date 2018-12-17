@@ -5,7 +5,7 @@ mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
 def root_print(*args, **kw):
-    if mpi_rank==0:
+    if mpi_rank == 0:
         print(*args, **kw)
 root_print("mpi_rank: ", mpi_size)
 root_print("mpi loaded")
@@ -50,7 +50,8 @@ config.device_count['GPU'] = 0
 sess = tf.Session(config=config)
 root_print("session created")
 
+if mpi_rank == 0:
+    tf.summary.FileWriter(f'{args.save_prefix}/last/', sess.graph)
 start = time.time()
-tf.summary.FileWriter('./run/last/', sess.graph)
 sl.grad_descent(sess)
 root_print(time.time()-start)
