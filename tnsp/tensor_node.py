@@ -22,14 +22,13 @@ class Node(object):
             assert isinstance(j, str), 'legs_dict values should be str'
         if restrict_mode:
             for i in legs_dict:
-                if not i in self.legs:
-                    raise Exception(f'leg {i} not found')
-    
+                assert i in self.legs, 'leg not found'
+
     def __assert_legs(self, legs, restrict_mode=True, part=True):
         assert isinstance(legs, list), 'legs array should be a list'
         for i in legs:
                 assert isinstance(i, str), 'legs should be str'
-        assert len(set(legs)) == len(legs), 'repeated legs name' 
+        assert len(set(legs)) == len(legs), 'repeated legs name'
         if part:
             if restrict_mode:
                 for i in legs:
